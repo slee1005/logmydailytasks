@@ -879,11 +879,483 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
   }
 }
 
+class $WorkSchedulesTable extends WorkSchedules
+    with TableInfo<$WorkSchedulesTable, WorkSchedule> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WorkSchedulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _workDaysMeta = const VerificationMeta(
+    'workDays',
+  );
+  @override
+  late final GeneratedColumn<String> workDays = GeneratedColumn<String>(
+    'work_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startMinuteMeta = const VerificationMeta(
+    'startMinute',
+  );
+  @override
+  late final GeneratedColumn<int> startMinute = GeneratedColumn<int>(
+    'start_minute',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endMinuteMeta = const VerificationMeta(
+    'endMinute',
+  );
+  @override
+  late final GeneratedColumn<int> endMinute = GeneratedColumn<int>(
+    'end_minute',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _intervalMinutesMeta = const VerificationMeta(
+    'intervalMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> intervalMinutes = GeneratedColumn<int>(
+    'interval_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _alignToWorkStartMeta = const VerificationMeta(
+    'alignToWorkStart',
+  );
+  @override
+  late final GeneratedColumn<bool> alignToWorkStart = GeneratedColumn<bool>(
+    'align_to_work_start',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("align_to_work_start" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    workDays,
+    startMinute,
+    endMinute,
+    intervalMinutes,
+    alignToWorkStart,
+    enabled,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'work_schedules';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WorkSchedule> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('work_days')) {
+      context.handle(
+        _workDaysMeta,
+        workDays.isAcceptableOrUnknown(data['work_days']!, _workDaysMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_workDaysMeta);
+    }
+    if (data.containsKey('start_minute')) {
+      context.handle(
+        _startMinuteMeta,
+        startMinute.isAcceptableOrUnknown(
+          data['start_minute']!,
+          _startMinuteMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startMinuteMeta);
+    }
+    if (data.containsKey('end_minute')) {
+      context.handle(
+        _endMinuteMeta,
+        endMinute.isAcceptableOrUnknown(data['end_minute']!, _endMinuteMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endMinuteMeta);
+    }
+    if (data.containsKey('interval_minutes')) {
+      context.handle(
+        _intervalMinutesMeta,
+        intervalMinutes.isAcceptableOrUnknown(
+          data['interval_minutes']!,
+          _intervalMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_intervalMinutesMeta);
+    }
+    if (data.containsKey('align_to_work_start')) {
+      context.handle(
+        _alignToWorkStartMeta,
+        alignToWorkStart.isAcceptableOrUnknown(
+          data['align_to_work_start']!,
+          _alignToWorkStartMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_alignToWorkStartMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_enabledMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WorkSchedule map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WorkSchedule(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      workDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}work_days'],
+      )!,
+      startMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_minute'],
+      )!,
+      endMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_minute'],
+      )!,
+      intervalMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_minutes'],
+      )!,
+      alignToWorkStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}align_to_work_start'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+    );
+  }
+
+  @override
+  $WorkSchedulesTable createAlias(String alias) {
+    return $WorkSchedulesTable(attachedDatabase, alias);
+  }
+}
+
+class WorkSchedule extends DataClass implements Insertable<WorkSchedule> {
+  final int id;
+  final String workDays;
+  final int startMinute;
+  final int endMinute;
+  final int intervalMinutes;
+  final bool alignToWorkStart;
+  final bool enabled;
+  const WorkSchedule({
+    required this.id,
+    required this.workDays,
+    required this.startMinute,
+    required this.endMinute,
+    required this.intervalMinutes,
+    required this.alignToWorkStart,
+    required this.enabled,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['work_days'] = Variable<String>(workDays);
+    map['start_minute'] = Variable<int>(startMinute);
+    map['end_minute'] = Variable<int>(endMinute);
+    map['interval_minutes'] = Variable<int>(intervalMinutes);
+    map['align_to_work_start'] = Variable<bool>(alignToWorkStart);
+    map['enabled'] = Variable<bool>(enabled);
+    return map;
+  }
+
+  WorkSchedulesCompanion toCompanion(bool nullToAbsent) {
+    return WorkSchedulesCompanion(
+      id: Value(id),
+      workDays: Value(workDays),
+      startMinute: Value(startMinute),
+      endMinute: Value(endMinute),
+      intervalMinutes: Value(intervalMinutes),
+      alignToWorkStart: Value(alignToWorkStart),
+      enabled: Value(enabled),
+    );
+  }
+
+  factory WorkSchedule.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WorkSchedule(
+      id: serializer.fromJson<int>(json['id']),
+      workDays: serializer.fromJson<String>(json['workDays']),
+      startMinute: serializer.fromJson<int>(json['startMinute']),
+      endMinute: serializer.fromJson<int>(json['endMinute']),
+      intervalMinutes: serializer.fromJson<int>(json['intervalMinutes']),
+      alignToWorkStart: serializer.fromJson<bool>(json['alignToWorkStart']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'workDays': serializer.toJson<String>(workDays),
+      'startMinute': serializer.toJson<int>(startMinute),
+      'endMinute': serializer.toJson<int>(endMinute),
+      'intervalMinutes': serializer.toJson<int>(intervalMinutes),
+      'alignToWorkStart': serializer.toJson<bool>(alignToWorkStart),
+      'enabled': serializer.toJson<bool>(enabled),
+    };
+  }
+
+  WorkSchedule copyWith({
+    int? id,
+    String? workDays,
+    int? startMinute,
+    int? endMinute,
+    int? intervalMinutes,
+    bool? alignToWorkStart,
+    bool? enabled,
+  }) => WorkSchedule(
+    id: id ?? this.id,
+    workDays: workDays ?? this.workDays,
+    startMinute: startMinute ?? this.startMinute,
+    endMinute: endMinute ?? this.endMinute,
+    intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+    alignToWorkStart: alignToWorkStart ?? this.alignToWorkStart,
+    enabled: enabled ?? this.enabled,
+  );
+  WorkSchedule copyWithCompanion(WorkSchedulesCompanion data) {
+    return WorkSchedule(
+      id: data.id.present ? data.id.value : this.id,
+      workDays: data.workDays.present ? data.workDays.value : this.workDays,
+      startMinute: data.startMinute.present
+          ? data.startMinute.value
+          : this.startMinute,
+      endMinute: data.endMinute.present ? data.endMinute.value : this.endMinute,
+      intervalMinutes: data.intervalMinutes.present
+          ? data.intervalMinutes.value
+          : this.intervalMinutes,
+      alignToWorkStart: data.alignToWorkStart.present
+          ? data.alignToWorkStart.value
+          : this.alignToWorkStart,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkSchedule(')
+          ..write('id: $id, ')
+          ..write('workDays: $workDays, ')
+          ..write('startMinute: $startMinute, ')
+          ..write('endMinute: $endMinute, ')
+          ..write('intervalMinutes: $intervalMinutes, ')
+          ..write('alignToWorkStart: $alignToWorkStart, ')
+          ..write('enabled: $enabled')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    workDays,
+    startMinute,
+    endMinute,
+    intervalMinutes,
+    alignToWorkStart,
+    enabled,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WorkSchedule &&
+          other.id == this.id &&
+          other.workDays == this.workDays &&
+          other.startMinute == this.startMinute &&
+          other.endMinute == this.endMinute &&
+          other.intervalMinutes == this.intervalMinutes &&
+          other.alignToWorkStart == this.alignToWorkStart &&
+          other.enabled == this.enabled);
+}
+
+class WorkSchedulesCompanion extends UpdateCompanion<WorkSchedule> {
+  final Value<int> id;
+  final Value<String> workDays;
+  final Value<int> startMinute;
+  final Value<int> endMinute;
+  final Value<int> intervalMinutes;
+  final Value<bool> alignToWorkStart;
+  final Value<bool> enabled;
+  const WorkSchedulesCompanion({
+    this.id = const Value.absent(),
+    this.workDays = const Value.absent(),
+    this.startMinute = const Value.absent(),
+    this.endMinute = const Value.absent(),
+    this.intervalMinutes = const Value.absent(),
+    this.alignToWorkStart = const Value.absent(),
+    this.enabled = const Value.absent(),
+  });
+  WorkSchedulesCompanion.insert({
+    this.id = const Value.absent(),
+    required String workDays,
+    required int startMinute,
+    required int endMinute,
+    required int intervalMinutes,
+    required bool alignToWorkStart,
+    required bool enabled,
+  }) : workDays = Value(workDays),
+       startMinute = Value(startMinute),
+       endMinute = Value(endMinute),
+       intervalMinutes = Value(intervalMinutes),
+       alignToWorkStart = Value(alignToWorkStart),
+       enabled = Value(enabled);
+  static Insertable<WorkSchedule> custom({
+    Expression<int>? id,
+    Expression<String>? workDays,
+    Expression<int>? startMinute,
+    Expression<int>? endMinute,
+    Expression<int>? intervalMinutes,
+    Expression<bool>? alignToWorkStart,
+    Expression<bool>? enabled,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (workDays != null) 'work_days': workDays,
+      if (startMinute != null) 'start_minute': startMinute,
+      if (endMinute != null) 'end_minute': endMinute,
+      if (intervalMinutes != null) 'interval_minutes': intervalMinutes,
+      if (alignToWorkStart != null) 'align_to_work_start': alignToWorkStart,
+      if (enabled != null) 'enabled': enabled,
+    });
+  }
+
+  WorkSchedulesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? workDays,
+    Value<int>? startMinute,
+    Value<int>? endMinute,
+    Value<int>? intervalMinutes,
+    Value<bool>? alignToWorkStart,
+    Value<bool>? enabled,
+  }) {
+    return WorkSchedulesCompanion(
+      id: id ?? this.id,
+      workDays: workDays ?? this.workDays,
+      startMinute: startMinute ?? this.startMinute,
+      endMinute: endMinute ?? this.endMinute,
+      intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+      alignToWorkStart: alignToWorkStart ?? this.alignToWorkStart,
+      enabled: enabled ?? this.enabled,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (workDays.present) {
+      map['work_days'] = Variable<String>(workDays.value);
+    }
+    if (startMinute.present) {
+      map['start_minute'] = Variable<int>(startMinute.value);
+    }
+    if (endMinute.present) {
+      map['end_minute'] = Variable<int>(endMinute.value);
+    }
+    if (intervalMinutes.present) {
+      map['interval_minutes'] = Variable<int>(intervalMinutes.value);
+    }
+    if (alignToWorkStart.present) {
+      map['align_to_work_start'] = Variable<bool>(alignToWorkStart.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkSchedulesCompanion(')
+          ..write('id: $id, ')
+          ..write('workDays: $workDays, ')
+          ..write('startMinute: $startMinute, ')
+          ..write('endMinute: $endMinute, ')
+          ..write('intervalMinutes: $intervalMinutes, ')
+          ..write('alignToWorkStart: $alignToWorkStart, ')
+          ..write('enabled: $enabled')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$WorklogDatabase extends GeneratedDatabase {
   _$WorklogDatabase(QueryExecutor e) : super(e);
   $WorklogDatabaseManager get managers => $WorklogDatabaseManager(this);
   late final $ActivitiesTable activities = $ActivitiesTable(this);
   late final $EntriesTable entries = $EntriesTable(this);
+  late final $WorkSchedulesTable workSchedules = $WorkSchedulesTable(this);
   late final Index entryStartIdx = Index(
     'entry_start_idx',
     'CREATE INDEX entry_start_idx ON entries (start_at)',
@@ -895,6 +1367,7 @@ abstract class _$WorklogDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     activities,
     entries,
+    workSchedules,
     entryStartIdx,
   ];
 }
@@ -1576,6 +2049,259 @@ typedef $$EntriesTableProcessedTableManager =
       WorkEntry,
       PrefetchHooks Function({bool activityId})
     >;
+typedef $$WorkSchedulesTableCreateCompanionBuilder =
+    WorkSchedulesCompanion Function({
+      Value<int> id,
+      required String workDays,
+      required int startMinute,
+      required int endMinute,
+      required int intervalMinutes,
+      required bool alignToWorkStart,
+      required bool enabled,
+    });
+typedef $$WorkSchedulesTableUpdateCompanionBuilder =
+    WorkSchedulesCompanion Function({
+      Value<int> id,
+      Value<String> workDays,
+      Value<int> startMinute,
+      Value<int> endMinute,
+      Value<int> intervalMinutes,
+      Value<bool> alignToWorkStart,
+      Value<bool> enabled,
+    });
+
+class $$WorkSchedulesTableFilterComposer
+    extends Composer<_$WorklogDatabase, $WorkSchedulesTable> {
+  $$WorkSchedulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workDays => $composableBuilder(
+    column: $table.workDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endMinute => $composableBuilder(
+    column: $table.endMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalMinutes => $composableBuilder(
+    column: $table.intervalMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get alignToWorkStart => $composableBuilder(
+    column: $table.alignToWorkStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WorkSchedulesTableOrderingComposer
+    extends Composer<_$WorklogDatabase, $WorkSchedulesTable> {
+  $$WorkSchedulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workDays => $composableBuilder(
+    column: $table.workDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endMinute => $composableBuilder(
+    column: $table.endMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalMinutes => $composableBuilder(
+    column: $table.intervalMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get alignToWorkStart => $composableBuilder(
+    column: $table.alignToWorkStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WorkSchedulesTableAnnotationComposer
+    extends Composer<_$WorklogDatabase, $WorkSchedulesTable> {
+  $$WorkSchedulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get workDays =>
+      $composableBuilder(column: $table.workDays, builder: (column) => column);
+
+  GeneratedColumn<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endMinute =>
+      $composableBuilder(column: $table.endMinute, builder: (column) => column);
+
+  GeneratedColumn<int> get intervalMinutes => $composableBuilder(
+    column: $table.intervalMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get alignToWorkStart => $composableBuilder(
+    column: $table.alignToWorkStart,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+}
+
+class $$WorkSchedulesTableTableManager
+    extends
+        RootTableManager<
+          _$WorklogDatabase,
+          $WorkSchedulesTable,
+          WorkSchedule,
+          $$WorkSchedulesTableFilterComposer,
+          $$WorkSchedulesTableOrderingComposer,
+          $$WorkSchedulesTableAnnotationComposer,
+          $$WorkSchedulesTableCreateCompanionBuilder,
+          $$WorkSchedulesTableUpdateCompanionBuilder,
+          (
+            WorkSchedule,
+            BaseReferences<
+              _$WorklogDatabase,
+              $WorkSchedulesTable,
+              WorkSchedule
+            >,
+          ),
+          WorkSchedule,
+          PrefetchHooks Function()
+        > {
+  $$WorkSchedulesTableTableManager(
+    _$WorklogDatabase db,
+    $WorkSchedulesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WorkSchedulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WorkSchedulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WorkSchedulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> workDays = const Value.absent(),
+                Value<int> startMinute = const Value.absent(),
+                Value<int> endMinute = const Value.absent(),
+                Value<int> intervalMinutes = const Value.absent(),
+                Value<bool> alignToWorkStart = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+              }) => WorkSchedulesCompanion(
+                id: id,
+                workDays: workDays,
+                startMinute: startMinute,
+                endMinute: endMinute,
+                intervalMinutes: intervalMinutes,
+                alignToWorkStart: alignToWorkStart,
+                enabled: enabled,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String workDays,
+                required int startMinute,
+                required int endMinute,
+                required int intervalMinutes,
+                required bool alignToWorkStart,
+                required bool enabled,
+              }) => WorkSchedulesCompanion.insert(
+                id: id,
+                workDays: workDays,
+                startMinute: startMinute,
+                endMinute: endMinute,
+                intervalMinutes: intervalMinutes,
+                alignToWorkStart: alignToWorkStart,
+                enabled: enabled,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WorkSchedulesTable, WorkSchedule>(table),
+                  BaseReferences<
+                    _$WorklogDatabase,
+                    $WorkSchedulesTable,
+                    WorkSchedule
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WorkSchedulesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$WorklogDatabase,
+      $WorkSchedulesTable,
+      WorkSchedule,
+      $$WorkSchedulesTableFilterComposer,
+      $$WorkSchedulesTableOrderingComposer,
+      $$WorkSchedulesTableAnnotationComposer,
+      $$WorkSchedulesTableCreateCompanionBuilder,
+      $$WorkSchedulesTableUpdateCompanionBuilder,
+      (
+        WorkSchedule,
+        BaseReferences<_$WorklogDatabase, $WorkSchedulesTable, WorkSchedule>,
+      ),
+      WorkSchedule,
+      PrefetchHooks Function()
+    >;
 
 class $WorklogDatabaseManager {
   final _$WorklogDatabase _db;
@@ -1584,4 +2310,6 @@ class $WorklogDatabaseManager {
       $$ActivitiesTableTableManager(_db, _db.activities);
   $$EntriesTableTableManager get entries =>
       $$EntriesTableTableManager(_db, _db.entries);
+  $$WorkSchedulesTableTableManager get workSchedules =>
+      $$WorkSchedulesTableTableManager(_db, _db.workSchedules);
 }

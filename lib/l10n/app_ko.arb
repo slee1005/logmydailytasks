@@ -15,5 +15,19 @@
   "saveCheckIn": "체크인 저장",
   "saveError": "체크인을 저장하지 못했습니다. 다시 시도해 주세요.",
   "emptyActivity": "업무를 입력해 주세요.",
-  "loadError": "업무 기록을 불러오지 못했습니다."
+  "loadError": "업무 기록을 불러오지 못했습니다.",
+  "scheduleTitle": "근무 일정",
+  "enableReminders": "체크인 알림",
+  "reminderAvailability": "앱이 열려 있고 활성 상태일 때 알림이 표시됩니다.",
+  "workDays": "근무 요일",
+  "workStart": "근무 시작",
+  "workEnd": "근무 종료",
+  "checkInInterval": "체크인 간격",
+  "intervalMinutes": "{minutes}분",
+  "alignToWorkStart": "근무 시작 시각 기준으로 간격 맞추기",
+  "saveSchedule": "근무 일정 저장",
+  "chooseWorkDay": "근무 요일을 하루 이상 선택해 주세요.",
+  "invalidWorkHours": "체크인 간격이 한 번 이상 들어가는 근무 시간을 선택해 주세요.",
+  "scheduleSaveError": "근무 일정을 저장하지 못했습니다.",
+  "reminderMessage": "체크인할 시간입니다. 어떤 일을 하셨나요?"
 }

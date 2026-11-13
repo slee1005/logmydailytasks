@@ -36,7 +36,16 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
         : 5;
 
     return Scaffold(
-      appBar: AppBar(title: Text(strings.appName)),
+      appBar: AppBar(
+        title: Text(strings.appName),
+        actions: [
+          IconButton(
+            tooltip: strings.scheduleTitle,
+            onPressed: () => context.push('/schedule'),
+            icon: const Icon(Icons.schedule),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         children: [

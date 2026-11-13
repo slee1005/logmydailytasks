@@ -25,5 +25,26 @@
   "saveCheckIn": "Save check-in",
   "saveError": "Could not save the check-in. Try again.",
   "emptyActivity": "Enter an activity.",
-  "loadError": "Could not load the worklog."
+  "loadError": "Could not load the worklog.",
+  "scheduleTitle": "Work schedule",
+  "enableReminders": "Check-in reminders",
+  "reminderAvailability": "Reminders appear while the app is open and active.",
+  "workDays": "Work days",
+  "workStart": "Start of work",
+  "workEnd": "End of work",
+  "checkInInterval": "Check-in interval",
+  "intervalMinutes": "{minutes} min",
+  "alignToWorkStart": "Align intervals to the start of work",
+  "saveSchedule": "Save schedule",
+  "chooseWorkDay": "Choose at least one work day.",
+  "invalidWorkHours": "Choose hours that fit at least one full check-in interval.",
+  "scheduleSaveError": "Could not save the work schedule.",
+  "reminderMessage": "Time to check in. What did you work on?",
+  "@intervalMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  }
 }

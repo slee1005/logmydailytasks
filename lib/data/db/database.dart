@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../domain/scheduler/check_in_schedule.dart';
+
 part 'database.g.dart';
 
 @DataClassName('Activity')
@@ -39,12 +41,25 @@ class Entries extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Activities, Entries])
+class WorkSchedules extends Table {
+  IntColumn get id => integer()();
+  TextColumn get workDays => text()();
+  IntColumn get startMinute => integer()();
+  IntColumn get endMinute => integer()();
+  IntColumn get intervalMinutes => integer()();
+  BoolColumn get alignToWorkStart => boolean()();
+  BoolColumn get enabled => boolean()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Activities, Entries, WorkSchedules])
 class WorklogDatabase extends _$WorklogDatabase {
   WorklogDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -55,8 +70,43 @@ class WorklogDatabase extends _$WorklogDatabase {
         'ON activities (title_norm) WHERE deleted_at IS NULL',
       );
     },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(workSchedules);
+    },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
+
+  Stream<CheckInSchedule> watchSchedule() {
+    return (select(
+      workSchedules,
+    )..where((row) => row.id.equals(1))).watchSingleOrNull().map(
+      (row) => row == null
+          ? const CheckInSchedule()
+          : CheckInSchedule(
+              workDays: row.workDays.split(',').map(int.parse).toSet(),
+              startMinute: row.startMinute,
+              endMinute: row.endMinute,
+              intervalMinutes: row.intervalMinutes,
+              alignToWorkStart: row.alignToWorkStart,
+              enabled: row.enabled,
+            ),
+    );
+  }
+
+  Future<void> saveSchedule(CheckInSchedule schedule) async {
+    if (!schedule.isValid) throw ArgumentError('Invalid work schedule');
+    await into(workSchedules).insertOnConflictUpdate(
+      WorkSchedulesCompanion.insert(
+        id: const Value(1),
+        workDays: (schedule.workDays.toList()..sort()).join(','),
+        startMinute: schedule.startMinute,
+        endMinute: schedule.endMinute,
+        intervalMinutes: schedule.intervalMinutes,
+        alignToWorkStart: schedule.alignToWorkStart,
+        enabled: schedule.enabled,
+      ),
+    );
+  }
 
   Future<void> saveCheckIn({
     required String title,
@@ -196,3 +246,7 @@ Future<String> _loadDatabaseKey() async {
   await storage.write(key: name, value: key);
   return key;
 }
+
+final workScheduleProvider = StreamProvider<CheckInSchedule>(
+  (ref) => ref.watch(databaseProvider).watchSchedule(),
+);

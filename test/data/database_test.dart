@@ -1,3 +1,4 @@
+import 'package:logmydailytask/domain/scheduler/check_in_schedule.dart';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -63,6 +64,62 @@ void main() {
         final saved = await reopened.select(reopened.entries).get();
         expect(saved.map((entry) => entry.tzName), everyElement(zone));
         expect(await reopened.select(reopened.activities).get(), hasLength(2));
+      } finally {
+        await reopened.close();
+      }
+    },
+  );
+  test(
+    'upgrades v1 records and keeps saved work settings after restart',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('schedule-test-');
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File('${directory.path}/worklog.sqlite');
+      final friday = DateTime(2026, 11, 13, 16);
+      final monday = DateTime(2026, 11, 9);
+      final original = WorklogDatabase(NativeDatabase(file));
+      try {
+        await original.saveCheckIn(
+          title: 'Existing work',
+          at: friday,
+          tzName: 'Etc/UTC',
+        );
+        // Recreate the previous schema: v2 added only the work schedule table.
+        await original.customStatement('DROP TABLE work_schedules');
+        await original.customStatement('PRAGMA user_version = 1');
+      } finally {
+        await original.close();
+      }
+
+      final migrated = WorklogDatabase(NativeDatabase(file));
+      try {
+        expect(await migrated.watchWeek(monday).first, [
+          (at: friday, title: 'Existing work'),
+        ]);
+        expect((await migrated.watchSchedule().first).intervalMinutes, 30);
+        await migrated.saveSchedule(
+          const CheckInSchedule(
+            workDays: {2, 6},
+            startMinute: 550,
+            endMinute: 1050,
+            intervalMinutes: 15,
+            enabled: false,
+            alignToWorkStart: true,
+          ),
+        );
+      } finally {
+        await migrated.close();
+      }
+
+      final reopened = WorklogDatabase(NativeDatabase(file));
+      try {
+        final schedule = await reopened.watchSchedule().first;
+        expect(schedule.workDays, {2, 6});
+        expect(schedule.startMinute, 550);
+        expect(schedule.endMinute, 1050);
+        expect(schedule.intervalMinutes, 15);
+        expect(schedule.enabled, isFalse);
+        expect(schedule.alignToWorkStart, isTrue);
       } finally {
         await reopened.close();
       }
