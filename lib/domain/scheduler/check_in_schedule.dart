@@ -33,11 +33,18 @@ class CheckInSchedule {
       : ((startMinute + intervalMinutes - 1) ~/ intervalMinutes) *
             intervalMinutes;
 
-  DateTime? nextReminderAfter(DateTime now) {
-    if (!enabled || !isValid) return null;
+  DateTime? nextReminderAfter(DateTime now) =>
+      remindersAfter(now, days: 8, localDate: DateTime.new).firstOrNull;
 
-    for (var offset = 0; offset <= 7; offset++) {
-      final day = DateTime(now.year, now.month, now.day + offset);
+  Iterable<T> remindersAfter<T extends DateTime>(
+    T now, {
+    required int days,
+    required T Function(int, int, int, int, int) localDate,
+  }) sync* {
+    if (!enabled || !isValid) return;
+
+    for (var offset = 0; offset < days; offset++) {
+      final day = localDate(now.year, now.month, now.day + offset, 12, 0);
       if (!workDays.contains(day.weekday)) continue;
 
       for (
@@ -45,7 +52,7 @@ class CheckInSchedule {
         minute <= endMinute;
         minute += intervalMinutes
       ) {
-        final candidate = DateTime(
+        final candidate = localDate(
           day.year,
           day.month,
           day.day,
@@ -57,9 +64,8 @@ class CheckInSchedule {
             candidate.hour * 60 + candidate.minute != minute) {
           continue;
         }
-        if (candidate.isAfter(now)) return candidate;
+        if (candidate.isAfter(now)) yield candidate;
       }
     }
-    return null;
   }
 }

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../data/db/database.dart';
 import '../../domain/scheduler/check_in_schedule.dart';
+import '../../integrations/notifications/os_check_in_notifications.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 class SchedulePage extends ConsumerWidget {
@@ -88,7 +89,17 @@ class _ScheduleFormState extends ConsumerState<_ScheduleForm> {
       _error = null;
     });
     try {
-      await ref.read(databaseProvider).saveSchedule(schedule);
+      final database = ref.read(databaseProvider);
+      final os = ref.read(osCheckInNotificationsProvider);
+      if (schedule.enabled && os != null) {
+        try {
+          await os.requestPermission();
+        } catch (_) {
+          // Save the schedule so foreground reminders remain available.
+        }
+      }
+      if (!mounted) return;
+      await database.saveSchedule(schedule);
       if (mounted) Navigator.of(context).maybePop();
     } catch (_) {
       if (mounted) setState(() => _error = strings.scheduleSaveError);
@@ -109,7 +120,13 @@ class _ScheduleFormState extends ConsumerState<_ScheduleForm> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(strings.enableReminders),
-          subtitle: Text(strings.reminderAvailability),
+          subtitle: Text(
+            ref.watch(osCheckInNotificationsProvider) == null
+                ? strings.reminderAvailability
+                : ref.watch(osReminderStatusProvider)
+                ? strings.osReminderAvailability
+                : strings.osReminderPermission,
+          ),
           value: _enabled,
           onChanged: _saving
               ? null

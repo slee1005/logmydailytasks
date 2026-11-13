@@ -5,6 +5,7 @@ import 'package:logmydailytask/app/worklog_app.dart';
 import 'package:logmydailytask/core/local_time.dart';
 import 'package:logmydailytask/data/db/database.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:logmydailytask/integrations/notifications/os_check_in_notifications.dart';
 
 void main() {
   testWidgets('saves schedule settings and opens a scheduled check-in', (
@@ -20,6 +21,7 @@ void main() {
       ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(database),
+          osCheckInNotificationsProvider.overrideWithValue(null),
           currentDateProvider.overrideWithValue(() => now),
         ],
         child: const WorklogApp(),
@@ -50,6 +52,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(milliseconds: 500));
     now = now.add(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();

@@ -46,5 +46,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "osReminderAvailability": "Scheduled OS alerts can appear when the app is closed.",
+  "osReminderPermission": "Save an enabled schedule and allow notifications to receive alerts when the app is closed."
 }
