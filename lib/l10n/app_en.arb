@@ -1,4 +1,7 @@
 {
+  "macUpdateAvailable": "LogMyDailyTask {version} is available.",
+  "@macUpdateAvailable": {"placeholders": {"version": {"type": "String"}}},
+  "macUpdateDownload": "Download",
   "@@locale": "en",
   "appName": "LogMyDailyTask",
   "weeklyTitle": "Weekly worklog",
@@ -56,8 +59,10 @@
   "invalidWorkTime": "Choose valid local times and an end after the start.",
   "searchOlderActivities": "Search older records",
   "csvExport": "Export CSV",
-  "csvExportError": "Could not share the CSV.",
-  "csvHeaders": "entry_id,date,start,end,minutes,category,project,description,note,source,status,device_name,device_platform,sheet_status,sheet_synced_at",
+  "csvExportError": "Could not export the CSV.",
+  "csvSavedToDownloads": "Saved to Downloads: {filename}",
+  "@csvSavedToDownloads": {"placeholders": {"filename": {"type": "String"}}},
+  "csvHeaders": "entry_id,date,start,end,minutes,category,description,note,source,status,device_name,device_platform,sheet_status,sheet_synced_at",
   "sheetTitle": "Google Sheets",
   "sheetDevice": "Device name",
   "sheetSaveDevice": "Save name",
@@ -72,5 +77,21 @@
   "sheetSynced": "Synced",
   "sheetPending": "Pending",
   "sheetNotLinked": "Not linked",
-  "sheetDisconnect": "Disconnect Google Sheets"
+  "sheetDisconnect": "Disconnect Google Sheets",
+  "dailyTitle": "Daily Worklog",
+  "noteLabel": "Note",
+  "categoryLabel": "Category",
+  "noCategory": "No category",
+  "addCategory": "Add category",
+  "calendarDay": "{date}, {count} logs",
+  "@calendarDay": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

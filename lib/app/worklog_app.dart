@@ -7,6 +7,9 @@ import 'package:flutter_localizations/flutter_localizations.dart'
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/local_time.dart';
 import '../data/db/database.dart';
@@ -17,6 +20,7 @@ import '../features/settings/schedule_page.dart';
 import '../features/checkin_popup/check_in_page.dart';
 import '../features/weekly/weekly_page.dart';
 import '../integrations/notifications/os_check_in_notifications.dart';
+import '../integrations/macos_update.dart';
 import '../l10n/generated/app_localizations.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
@@ -49,6 +53,10 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
   late final _os = ref.read(osCheckInNotificationsProvider);
   Future<void> _syncQueue = Future.value();
   Timer? _refill;
+  Timer? _updateTimer;
+  DateTime? _lastUpdateCheck;
+  String? _announcedVersion;
+  static const _updateInterval = Duration(hours: 6);
   bool _osReady = false;
   bool _active = true;
 
@@ -61,7 +69,10 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
       onStateChange: (state) {
         _active = state == AppLifecycleState.resumed;
         _refreshReminder();
-        if (_active) _queueOsSync();
+        if (_active) {
+          _queueOsSync();
+          _checkForUpdate();
+        }
       },
     );
     ref.listenManual(workScheduleProvider, (_, _) {
@@ -72,6 +83,51 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
       _refill = Timer.periodic(const Duration(minutes: 15), (_) {
         if (_active) _queueOsSync();
       });
+    }
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.macOS &&
+        macReleaseVersion.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+      _updateTimer = Timer.periodic(_updateInterval, (_) => _checkForUpdate());
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (!mounted || !_active || _updateTimer == null) return;
+    final now = DateTime.now();
+    final lastCheck = _lastUpdateCheck;
+    if (lastCheck != null && now.difference(lastCheck) < _updateInterval) {
+      return;
+    }
+    _lastUpdateCheck = now;
+    final client = http.Client();
+    try {
+      final update = await findMacUpdate(client, macReleaseVersion);
+      if (!mounted || update == null || _announcedVersion == update.version) {
+        return;
+      }
+      final messenger = _messenger.currentState;
+      if (messenger == null) return;
+      final strings = AppLocalizations.of(messenger.context)!;
+      _announcedVersion = update.version;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(strings.macUpdateAvailable(update.version)),
+          duration: const Duration(seconds: 25),
+          showCloseIcon: true,
+          action: SnackBarAction(
+            label: strings.macUpdateDownload,
+            onPressed: () => launchUrl(
+              update.installer,
+              mode: LaunchMode.externalApplication,
+            ),
+          ),
+        ),
+      );
+    } on Exception {
+      // A failed check can be retried on the next interval.
+    } finally {
+      client.close();
     }
   }
 
@@ -147,6 +203,7 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
   void dispose() {
     _timer.cancel();
     _refill?.cancel();
+    _updateTimer?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }

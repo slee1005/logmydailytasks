@@ -451,6 +451,26 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _endAtMeta = const VerificationMeta('endAt');
   @override
   late final GeneratedColumn<int> endAt = GeneratedColumn<int>(
@@ -574,6 +594,8 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
     id,
     activityId,
     startAt,
+    note,
+    category,
     endAt,
     deviceName,
     devicePlatform,
@@ -618,6 +640,18 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
       );
     } else if (isInserting) {
       context.missing(_startAtMeta);
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
     }
     if (data.containsKey('end_at')) {
       context.handle(
@@ -718,6 +752,14 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
         DriftSqlType.int,
         data['${effectivePrefix}start_at'],
       )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      ),
       endAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}end_at'],
@@ -775,6 +817,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
   final String id;
   final String activityId;
   final int startAt;
+  final String? note;
+  final String? category;
   final int? endAt;
   final String? deviceName;
   final String? devicePlatform;
@@ -790,6 +834,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     required this.id,
     required this.activityId,
     required this.startAt,
+    this.note,
+    this.category,
     this.endAt,
     this.deviceName,
     this.devicePlatform,
@@ -808,6 +854,12 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     map['id'] = Variable<String>(id);
     map['activity_id'] = Variable<String>(activityId);
     map['start_at'] = Variable<int>(startAt);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || category != null) {
+      map['category'] = Variable<String>(category);
+    }
     if (!nullToAbsent || endAt != null) {
       map['end_at'] = Variable<int>(endAt);
     }
@@ -841,6 +893,10 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
       id: Value(id),
       activityId: Value(activityId),
       startAt: Value(startAt),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      category: category == null && nullToAbsent
+          ? const Value.absent()
+          : Value(category),
       endAt: endAt == null && nullToAbsent
           ? const Value.absent()
           : Value(endAt),
@@ -878,6 +934,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
       id: serializer.fromJson<String>(json['id']),
       activityId: serializer.fromJson<String>(json['activityId']),
       startAt: serializer.fromJson<int>(json['startAt']),
+      note: serializer.fromJson<String?>(json['note']),
+      category: serializer.fromJson<String?>(json['category']),
       endAt: serializer.fromJson<int?>(json['endAt']),
       deviceName: serializer.fromJson<String?>(json['deviceName']),
       devicePlatform: serializer.fromJson<String?>(json['devicePlatform']),
@@ -898,6 +956,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
       'id': serializer.toJson<String>(id),
       'activityId': serializer.toJson<String>(activityId),
       'startAt': serializer.toJson<int>(startAt),
+      'note': serializer.toJson<String?>(note),
+      'category': serializer.toJson<String?>(category),
       'endAt': serializer.toJson<int?>(endAt),
       'deviceName': serializer.toJson<String?>(deviceName),
       'devicePlatform': serializer.toJson<String?>(devicePlatform),
@@ -916,6 +976,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     String? id,
     String? activityId,
     int? startAt,
+    Value<String?> note = const Value.absent(),
+    Value<String?> category = const Value.absent(),
     Value<int?> endAt = const Value.absent(),
     Value<String?> deviceName = const Value.absent(),
     Value<String?> devicePlatform = const Value.absent(),
@@ -931,6 +993,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     id: id ?? this.id,
     activityId: activityId ?? this.activityId,
     startAt: startAt ?? this.startAt,
+    note: note.present ? note.value : this.note,
+    category: category.present ? category.value : this.category,
     endAt: endAt.present ? endAt.value : this.endAt,
     deviceName: deviceName.present ? deviceName.value : this.deviceName,
     devicePlatform: devicePlatform.present
@@ -952,6 +1016,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
           ? data.activityId.value
           : this.activityId,
       startAt: data.startAt.present ? data.startAt.value : this.startAt,
+      note: data.note.present ? data.note.value : this.note,
+      category: data.category.present ? data.category.value : this.category,
       endAt: data.endAt.present ? data.endAt.value : this.endAt,
       deviceName: data.deviceName.present
           ? data.deviceName.value
@@ -982,6 +1048,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
           ..write('id: $id, ')
           ..write('activityId: $activityId, ')
           ..write('startAt: $startAt, ')
+          ..write('note: $note, ')
+          ..write('category: $category, ')
           ..write('endAt: $endAt, ')
           ..write('deviceName: $deviceName, ')
           ..write('devicePlatform: $devicePlatform, ')
@@ -1002,6 +1070,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     id,
     activityId,
     startAt,
+    note,
+    category,
     endAt,
     deviceName,
     devicePlatform,
@@ -1021,6 +1091,8 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
           other.id == this.id &&
           other.activityId == this.activityId &&
           other.startAt == this.startAt &&
+          other.note == this.note &&
+          other.category == this.category &&
           other.endAt == this.endAt &&
           other.deviceName == this.deviceName &&
           other.devicePlatform == this.devicePlatform &&
@@ -1038,6 +1110,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
   final Value<String> id;
   final Value<String> activityId;
   final Value<int> startAt;
+  final Value<String?> note;
+  final Value<String?> category;
   final Value<int?> endAt;
   final Value<String?> deviceName;
   final Value<String?> devicePlatform;
@@ -1054,6 +1128,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     this.id = const Value.absent(),
     this.activityId = const Value.absent(),
     this.startAt = const Value.absent(),
+    this.note = const Value.absent(),
+    this.category = const Value.absent(),
     this.endAt = const Value.absent(),
     this.deviceName = const Value.absent(),
     this.devicePlatform = const Value.absent(),
@@ -1071,6 +1147,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     required String id,
     required String activityId,
     required int startAt,
+    this.note = const Value.absent(),
+    this.category = const Value.absent(),
     this.endAt = const Value.absent(),
     this.deviceName = const Value.absent(),
     this.devicePlatform = const Value.absent(),
@@ -1093,6 +1171,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     Expression<String>? id,
     Expression<String>? activityId,
     Expression<int>? startAt,
+    Expression<String>? note,
+    Expression<String>? category,
     Expression<int>? endAt,
     Expression<String>? deviceName,
     Expression<String>? devicePlatform,
@@ -1110,6 +1190,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
       if (id != null) 'id': id,
       if (activityId != null) 'activity_id': activityId,
       if (startAt != null) 'start_at': startAt,
+      if (note != null) 'note': note,
+      if (category != null) 'category': category,
       if (endAt != null) 'end_at': endAt,
       if (deviceName != null) 'device_name': deviceName,
       if (devicePlatform != null) 'device_platform': devicePlatform,
@@ -1129,6 +1211,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     Value<String>? id,
     Value<String>? activityId,
     Value<int>? startAt,
+    Value<String?>? note,
+    Value<String?>? category,
     Value<int?>? endAt,
     Value<String?>? deviceName,
     Value<String?>? devicePlatform,
@@ -1146,6 +1230,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
       id: id ?? this.id,
       activityId: activityId ?? this.activityId,
       startAt: startAt ?? this.startAt,
+      note: note ?? this.note,
+      category: category ?? this.category,
       endAt: endAt ?? this.endAt,
       deviceName: deviceName ?? this.deviceName,
       devicePlatform: devicePlatform ?? this.devicePlatform,
@@ -1172,6 +1258,12 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     }
     if (startAt.present) {
       map['start_at'] = Variable<int>(startAt.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
     }
     if (endAt.present) {
       map['end_at'] = Variable<int>(endAt.value);
@@ -1218,6 +1310,8 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
           ..write('id: $id, ')
           ..write('activityId: $activityId, ')
           ..write('startAt: $startAt, ')
+          ..write('note: $note, ')
+          ..write('category: $category, ')
           ..write('endAt: $endAt, ')
           ..write('deviceName: $deviceName, ')
           ..write('devicePlatform: $devicePlatform, ')
@@ -2114,6 +2208,223 @@ class SheetSettingsCompanion extends UpdateCompanion<SheetSetting> {
   }
 }
 
+class $WorkCategoriesTable extends WorkCategories
+    with TableInfo<$WorkCategoriesTable, WorkCategory> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WorkCategoriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _normalizedMeta = const VerificationMeta(
+    'normalized',
+  );
+  @override
+  late final GeneratedColumn<String> normalized = GeneratedColumn<String>(
+    'normalized',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [normalized, name];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'work_categories';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WorkCategory> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('normalized')) {
+      context.handle(
+        _normalizedMeta,
+        normalized.isAcceptableOrUnknown(data['normalized']!, _normalizedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_normalizedMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {normalized};
+  @override
+  WorkCategory map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WorkCategory(
+      normalized: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}normalized'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+    );
+  }
+
+  @override
+  $WorkCategoriesTable createAlias(String alias) {
+    return $WorkCategoriesTable(attachedDatabase, alias);
+  }
+}
+
+class WorkCategory extends DataClass implements Insertable<WorkCategory> {
+  final String normalized;
+  final String name;
+  const WorkCategory({required this.normalized, required this.name});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['normalized'] = Variable<String>(normalized);
+    map['name'] = Variable<String>(name);
+    return map;
+  }
+
+  WorkCategoriesCompanion toCompanion(bool nullToAbsent) {
+    return WorkCategoriesCompanion(
+      normalized: Value(normalized),
+      name: Value(name),
+    );
+  }
+
+  factory WorkCategory.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WorkCategory(
+      normalized: serializer.fromJson<String>(json['normalized']),
+      name: serializer.fromJson<String>(json['name']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'normalized': serializer.toJson<String>(normalized),
+      'name': serializer.toJson<String>(name),
+    };
+  }
+
+  WorkCategory copyWith({String? normalized, String? name}) => WorkCategory(
+    normalized: normalized ?? this.normalized,
+    name: name ?? this.name,
+  );
+  WorkCategory copyWithCompanion(WorkCategoriesCompanion data) {
+    return WorkCategory(
+      normalized: data.normalized.present
+          ? data.normalized.value
+          : this.normalized,
+      name: data.name.present ? data.name.value : this.name,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkCategory(')
+          ..write('normalized: $normalized, ')
+          ..write('name: $name')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(normalized, name);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WorkCategory &&
+          other.normalized == this.normalized &&
+          other.name == this.name);
+}
+
+class WorkCategoriesCompanion extends UpdateCompanion<WorkCategory> {
+  final Value<String> normalized;
+  final Value<String> name;
+  final Value<int> rowid;
+  const WorkCategoriesCompanion({
+    this.normalized = const Value.absent(),
+    this.name = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WorkCategoriesCompanion.insert({
+    required String normalized,
+    required String name,
+    this.rowid = const Value.absent(),
+  }) : normalized = Value(normalized),
+       name = Value(name);
+  static Insertable<WorkCategory> custom({
+    Expression<String>? normalized,
+    Expression<String>? name,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (normalized != null) 'normalized': normalized,
+      if (name != null) 'name': name,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WorkCategoriesCompanion copyWith({
+    Value<String>? normalized,
+    Value<String>? name,
+    Value<int>? rowid,
+  }) {
+    return WorkCategoriesCompanion(
+      normalized: normalized ?? this.normalized,
+      name: name ?? this.name,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (normalized.present) {
+      map['normalized'] = Variable<String>(normalized.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkCategoriesCompanion(')
+          ..write('normalized: $normalized, ')
+          ..write('name: $name, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$WorklogDatabase extends GeneratedDatabase {
   _$WorklogDatabase(QueryExecutor e) : super(e);
   $WorklogDatabaseManager get managers => $WorklogDatabaseManager(this);
@@ -2121,6 +2432,7 @@ abstract class _$WorklogDatabase extends GeneratedDatabase {
   late final $EntriesTable entries = $EntriesTable(this);
   late final $WorkSchedulesTable workSchedules = $WorkSchedulesTable(this);
   late final $SheetSettingsTable sheetSettings = $SheetSettingsTable(this);
+  late final $WorkCategoriesTable workCategories = $WorkCategoriesTable(this);
   late final Index entryStartIdx = Index(
     'entry_start_idx',
     'CREATE INDEX entry_start_idx ON entries (start_at)',
@@ -2134,6 +2446,7 @@ abstract class _$WorklogDatabase extends GeneratedDatabase {
     entries,
     workSchedules,
     sheetSettings,
+    workCategories,
     entryStartIdx,
   ];
 }
@@ -2465,6 +2778,8 @@ typedef $$EntriesTableCreateCompanionBuilder =
       required String id,
       required String activityId,
       required int startAt,
+      Value<String?> note,
+      Value<String?> category,
       Value<int?> endAt,
       Value<String?> deviceName,
       Value<String?> devicePlatform,
@@ -2483,6 +2798,8 @@ typedef $$EntriesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> activityId,
       Value<int> startAt,
+      Value<String?> note,
+      Value<String?> category,
       Value<int?> endAt,
       Value<String?> deviceName,
       Value<String?> devicePlatform,
@@ -2535,6 +2852,16 @@ class $$EntriesTableFilterComposer
 
   ColumnFilters<int> get startAt => $composableBuilder(
     column: $table.startAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2636,6 +2963,16 @@ class $$EntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get endAt => $composableBuilder(
     column: $table.endAt,
     builder: (column) => ColumnOrderings(column),
@@ -2729,6 +3066,12 @@ class $$EntriesTableAnnotationComposer
 
   GeneratedColumn<int> get startAt =>
       $composableBuilder(column: $table.startAt, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
 
   GeneratedColumn<int> get endAt =>
       $composableBuilder(column: $table.endAt, builder: (column) => column);
@@ -2828,6 +3171,8 @@ class $$EntriesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> activityId = const Value.absent(),
                 Value<int> startAt = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String?> category = const Value.absent(),
                 Value<int?> endAt = const Value.absent(),
                 Value<String?> deviceName = const Value.absent(),
                 Value<String?> devicePlatform = const Value.absent(),
@@ -2844,6 +3189,8 @@ class $$EntriesTableTableManager
                 id: id,
                 activityId: activityId,
                 startAt: startAt,
+                note: note,
+                category: category,
                 endAt: endAt,
                 deviceName: deviceName,
                 devicePlatform: devicePlatform,
@@ -2862,6 +3209,8 @@ class $$EntriesTableTableManager
                 required String id,
                 required String activityId,
                 required int startAt,
+                Value<String?> note = const Value.absent(),
+                Value<String?> category = const Value.absent(),
                 Value<int?> endAt = const Value.absent(),
                 Value<String?> deviceName = const Value.absent(),
                 Value<String?> devicePlatform = const Value.absent(),
@@ -2878,6 +3227,8 @@ class $$EntriesTableTableManager
                 id: id,
                 activityId: activityId,
                 startAt: startAt,
+                note: note,
+                category: category,
                 endAt: endAt,
                 deviceName: deviceName,
                 devicePlatform: devicePlatform,
@@ -3443,6 +3794,166 @@ typedef $$SheetSettingsTableProcessedTableManager =
       SheetSetting,
       PrefetchHooks Function()
     >;
+typedef $$WorkCategoriesTableCreateCompanionBuilder =
+    WorkCategoriesCompanion Function({
+      required String normalized,
+      required String name,
+      Value<int> rowid,
+    });
+typedef $$WorkCategoriesTableUpdateCompanionBuilder =
+    WorkCategoriesCompanion Function({
+      Value<String> normalized,
+      Value<String> name,
+      Value<int> rowid,
+    });
+
+class $$WorkCategoriesTableFilterComposer
+    extends Composer<_$WorklogDatabase, $WorkCategoriesTable> {
+  $$WorkCategoriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get normalized => $composableBuilder(
+    column: $table.normalized,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WorkCategoriesTableOrderingComposer
+    extends Composer<_$WorklogDatabase, $WorkCategoriesTable> {
+  $$WorkCategoriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get normalized => $composableBuilder(
+    column: $table.normalized,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WorkCategoriesTableAnnotationComposer
+    extends Composer<_$WorklogDatabase, $WorkCategoriesTable> {
+  $$WorkCategoriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get normalized => $composableBuilder(
+    column: $table.normalized,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+}
+
+class $$WorkCategoriesTableTableManager
+    extends
+        RootTableManager<
+          _$WorklogDatabase,
+          $WorkCategoriesTable,
+          WorkCategory,
+          $$WorkCategoriesTableFilterComposer,
+          $$WorkCategoriesTableOrderingComposer,
+          $$WorkCategoriesTableAnnotationComposer,
+          $$WorkCategoriesTableCreateCompanionBuilder,
+          $$WorkCategoriesTableUpdateCompanionBuilder,
+          (
+            WorkCategory,
+            BaseReferences<
+              _$WorklogDatabase,
+              $WorkCategoriesTable,
+              WorkCategory
+            >,
+          ),
+          WorkCategory,
+          PrefetchHooks Function()
+        > {
+  $$WorkCategoriesTableTableManager(
+    _$WorklogDatabase db,
+    $WorkCategoriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WorkCategoriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WorkCategoriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WorkCategoriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> normalized = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WorkCategoriesCompanion(
+                normalized: normalized,
+                name: name,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String normalized,
+                required String name,
+                Value<int> rowid = const Value.absent(),
+              }) => WorkCategoriesCompanion.insert(
+                normalized: normalized,
+                name: name,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WorkCategoriesTable, WorkCategory>(table),
+                  BaseReferences<
+                    _$WorklogDatabase,
+                    $WorkCategoriesTable,
+                    WorkCategory
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WorkCategoriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$WorklogDatabase,
+      $WorkCategoriesTable,
+      WorkCategory,
+      $$WorkCategoriesTableFilterComposer,
+      $$WorkCategoriesTableOrderingComposer,
+      $$WorkCategoriesTableAnnotationComposer,
+      $$WorkCategoriesTableCreateCompanionBuilder,
+      $$WorkCategoriesTableUpdateCompanionBuilder,
+      (
+        WorkCategory,
+        BaseReferences<_$WorklogDatabase, $WorkCategoriesTable, WorkCategory>,
+      ),
+      WorkCategory,
+      PrefetchHooks Function()
+    >;
 
 class $WorklogDatabaseManager {
   final _$WorklogDatabase _db;
@@ -3455,4 +3966,6 @@ class $WorklogDatabaseManager {
       $$WorkSchedulesTableTableManager(_db, _db.workSchedules);
   $$SheetSettingsTableTableManager get sheetSettings =>
       $$SheetSettingsTableTableManager(_db, _db.sheetSettings);
+  $$WorkCategoriesTableTableManager get workCategories =>
+      $$WorkCategoriesTableTableManager(_db, _db.workCategories);
 }

@@ -41,7 +41,7 @@ void main() {
     );
     await tester.tap(save);
     await tester.pumpAndSettle();
-    expect(find.text('Weekly worklog'), findsOneWidget);
+    expect(find.text('Daily Worklog'), findsOneWidget);
     expect(
       (await tester.runAsync(
         () => database.watchSchedule().first,

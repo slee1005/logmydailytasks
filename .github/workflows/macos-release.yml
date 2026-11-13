@@ -1,0 +1,31 @@
+name: Publish macOS installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: flutter analyze
+      - run: flutter test
+      - name: Build and verify installer
+        run: bash tool/package_macos.sh "$GITHUB_REF_NAME"
+      - name: Publish installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/LogMyDailyTask-macOS.dmg \
+            --verify-tag --latest \
+            --notes "Apple silicon용 DMG입니다. 앱을 Applications로 드래그해 설치하세요. Apple 공증을 받지 않은 빌드이며, 이 공개 빌드에서는 Google Sheets 로그인이 제공되지 않습니다."

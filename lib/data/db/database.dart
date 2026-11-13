@@ -36,6 +36,8 @@ class Entries extends Table {
   TextColumn get id => text()();
   TextColumn get activityId => text().references(Activities, #id)();
   IntColumn get startAt => integer()();
+  TextColumn get note => text().nullable()();
+  TextColumn get category => text().nullable()();
   IntColumn get endAt => integer().nullable()();
   TextColumn get deviceName => text().nullable()();
   TextColumn get devicePlatform => text().nullable()();
@@ -77,12 +79,22 @@ class SheetSettings extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Activities, Entries, WorkSchedules, SheetSettings])
+class WorkCategories extends Table {
+  TextColumn get normalized => text()();
+  TextColumn get name => text()();
+
+  @override
+  Set<Column> get primaryKey => {normalized};
+}
+
+@DriftDatabase(
+  tables: [Activities, Entries, WorkSchedules, SheetSettings, WorkCategories],
+)
 class WorklogDatabase extends _$WorklogDatabase {
   WorklogDatabase(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +118,11 @@ class WorklogDatabase extends _$WorklogDatabase {
         await m.addColumn(entries, entries.sheetState);
         await m.addColumn(entries, entries.syncedAt);
         await m.addColumn(entries, entries.sheetError);
+      }
+      if (from < 5) {
+        await m.addColumn(entries, entries.note);
+        await m.addColumn(entries, entries.category);
+        await m.createTable(workCategories);
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -247,6 +264,8 @@ class WorklogDatabase extends _$WorklogDatabase {
         (
           id: row.readTable(entries).id,
           title: row.readTable(activities).title,
+          note: row.readTable(entries).note,
+          category: row.readTable(entries).category,
           start: row.readTable(entries).startAt,
           end: row.readTable(entries).endAt,
           zone: row.readTable(entries).tzName,
@@ -313,12 +332,20 @@ class WorklogDatabase extends _$WorklogDatabase {
                       row.titleNorm.equals(titleNorm) & row.deletedAt.isNull(),
                 ))
                 .getSingle();
+        final category = record.category;
+        if (category != null &&
+            category.trim().isNotEmpty &&
+            category.trim().characters.length <= 80) {
+          await addCategory(category);
+        }
         await into(entries).insertOnConflictUpdate(
           EntriesCompanion.insert(
             id: record.id,
             activityId: activity.id,
             startAt: record.start,
             endAt: Value(record.end),
+            note: Value(record.note),
+            category: Value(record.category),
             tzName: record.zone,
             deviceName: Value(record.device),
             devicePlatform: Value(record.platform),
@@ -334,11 +361,34 @@ class WorklogDatabase extends _$WorklogDatabase {
     });
   }
 
+  Future<String> addCategory(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.characters.length > 80) {
+      throw ArgumentError('Invalid category name');
+    }
+    final normalized = trimmed.toLowerCase();
+    await into(workCategories).insert(
+      WorkCategoriesCompanion.insert(normalized: normalized, name: trimmed),
+      mode: InsertMode.insertOrIgnore,
+    );
+    return (await (select(
+      workCategories,
+    )..where((row) => row.normalized.equals(normalized))).getSingle()).name;
+  }
+
+  Stream<List<String>> watchCategories() =>
+      (select(workCategories)
+            ..orderBy([(row) => OrderingTerm.asc(row.normalized)]))
+          .watch()
+          .map((rows) => rows.map((row) => row.name).toList());
+
   Future<void> saveCheckIn({
     required String title,
     required DateTime at,
     required String tzName,
     DateTime? end,
+    String? note,
+    String? category,
     String? deviceName,
     String? devicePlatform,
   }) async {
@@ -378,6 +428,8 @@ class WorklogDatabase extends _$WorklogDatabase {
           activityId: activity.id,
           startAt: timestamp,
           endAt: Value(end?.millisecondsSinceEpoch),
+          note: Value(note),
+          category: Value(category),
           deviceName: Value(settings?.deviceLabel ?? deviceName),
           sheetState: Value(settings?.spreadsheet == null ? 'none' : 'pending'),
           devicePlatform: Value(devicePlatform),
@@ -424,7 +476,20 @@ class WorklogDatabase extends _$WorklogDatabase {
       ).map((rows) => [for (final row in rows) (at: row.at, title: row.title)]);
 
   Future<List<CsvWorkEntry>> exportEntries(DateTime start, DateTime end) async {
-    final rows = await _entriesInRange(start, end).get();
+    // Look beyond the export range so its last row can still have an end time.
+    const nextCheckIn = CustomExpression<int>('''
+      (SELECT next.created_at
+       FROM entries AS next JOIN activities AS activity
+         ON activity.id = next.activity_id
+       WHERE next.deleted_at IS NULL AND activity.deleted_at IS NULL
+         AND (next.created_at, next.id) > (entries.created_at, entries.id)
+       ORDER BY next.created_at, next.id
+       LIMIT 1)
+    ''');
+    final rows = await (_entriesInRange(
+      start,
+      end,
+    )..addColumns([nextCheckIn])).get();
     return [
       for (final row in rows)
         (
@@ -433,7 +498,7 @@ class WorklogDatabase extends _$WorklogDatabase {
             row.readTable(entries).startAt,
             isUtc: true,
           ),
-          end: switch (row.readTable(entries).endAt) {
+          end: switch (row.read(nextCheckIn)) {
             final value? => DateTime.fromMillisecondsSinceEpoch(
               value,
               isUtc: true,
@@ -441,6 +506,8 @@ class WorklogDatabase extends _$WorklogDatabase {
             null => null,
           },
           title: row.readTable(activities).title,
+          note: row.readTable(entries).note,
+          category: row.readTable(entries).category,
           zone: row.readTable(entries).tzName,
           device: row.readTable(entries).deviceName ?? '',
           platform: row.readTable(entries).devicePlatform ?? '',
@@ -468,7 +535,11 @@ class WorklogDatabase extends _$WorklogDatabase {
   Stream<List<WeeklyActivity>> watchWeeklyActivities(DateTime monday) {
     // Calendar arithmetic keeps the range correct when a DST change occurs.
     final nextMonday = DateTime(monday.year, monday.month, monday.day + 7);
-    final query = _entriesInRange(monday, nextMonday);
+    return watchActivities(monday, nextMonday);
+  }
+
+  Stream<List<WeeklyActivity>> watchActivities(DateTime start, DateTime end) {
+    final query = _entriesInRange(start, end);
 
     return query.watch().map(
       (rows) => [
@@ -478,6 +549,8 @@ class WorklogDatabase extends _$WorklogDatabase {
               row.readTable(entries).startAt,
             ),
             title: row.readTable(activities).title,
+            note: row.readTable(entries).note,
+            category: row.readTable(entries).category,
             end: switch (row.readTable(entries).endAt) {
               final value? => DateTime.fromMillisecondsSinceEpoch(value),
               null => null,
@@ -529,6 +602,8 @@ typedef WeeklyActivity = ({
   DateTime at,
   DateTime? end,
   String title,
+  String? note,
+  String? category,
   String zone,
   String? device,
   String sheetState,

@@ -2,8 +2,7 @@
 
 개인 업무를 체크인으로 기록하고 주간 단위로 확인하는 로컬 우선 앱입니다.
 체크인에서 업무를 입력하고 **체크인 저장**을 누르면 현재 날짜와 시각으로 기록됩니다.
-저장한 업무는 주간 화면에 바로 표시되며 앱을 다시 열어도 남습니다.
-평일을 기본으로 표시하고 주말 기록이 있는 주에는 주말도 표시합니다.
+Daily Worklog에는 오늘 기록을 최신순으로 표시합니다. 월간 달력에서 점이 있는 날짜를 누르면 그날의 기록을 볼 수 있습니다. 체크인에 노트를 남기고 카테고리를 선택하거나 추가할 수 있습니다.
 앱은 기기의 언어와 시간대를 따릅니다.
 데스크톱과 모바일에서는 SQLCipher로 로컬 DB를 암호화하고 키는 OS 보안 저장소에 보관합니다.
 웹에서는 브라우저의 해당 사이트 저장소를 사용합니다.
@@ -12,7 +11,13 @@
 
 - 체크인에서 **작업 시작·종료 시간 지정**을 펼치면 날짜, 시각, IANA 시간대를 선택할 수 있습니다. 시간은 UTC로 저장되며, 주간 기록의 시간 구간은 선택한 시간대로 표시됩니다.
 - 업무 제목을 입력하면 최근 7일 기록에서 추천합니다. 한글 초성과 이전 기록 검색도 지원합니다.
-- 주간 화면에서 날짜 범위를 선택해 CSV를 내보낼 수 있습니다. 새 기록에는 저장 플랫폼이 표시됩니다.
+- 리포트에서 날짜 범위를 선택해 CSV를 내보낼 수 있습니다. Mac에서는 저장을 누르면 다운로드 폴더에 바로 저장되며, 같은 이름의 파일이 있으면 번호를 붙입니다. 새 기록에는 저장 플랫폼이 표시됩니다.
+
+## Mac에 설치
+
+[GitHub Releases](https://github.com/slee1005/logmydailytasks/releases/latest)에서 Apple silicon용 `LogMyDailyTask-macOS.dmg`를 열고 앱을 Applications 폴더로 드래그하세요. 공개 빌드는 Apple 공증을 받지 않았으며 Google Sheets 로그인 설정이 포함되어 있지 않습니다.
+
+앱은 시작할 때와 실행 중 6시간마다 새 버전을 확인합니다. 알림의 **다운로드**를 눌러 새 DMG를 받은 뒤 Applications의 앱을 교체할 수 있습니다.
 
 ## 자동 체크인
 
@@ -35,6 +40,8 @@
 - 웹과 Windows에서는 앱이 활성 상태일 때 앱 안에서 알림이 표시됩니다.
 
 ## 개발 환경
+
+iPhone 앱은 iOS 26.0 이상에서 설치할 수 있습니다.
 
 Flutter stable 3.50.0을 사용합니다. macOS 또는 Chrome에서 실행하려면 다음 명령을 사용하세요.
 
@@ -60,7 +67,7 @@ Google Cloud 프로젝트에서 Sheets API와 Drive API를 활성화하고 OAuth
 
 - **macOS / Windows**: Desktop OAuth 클라이언트를 만든 뒤 `--dart-define=GOOGLE_SHEETS_CLIENT_ID=… --dart-define=GOOGLE_SHEETS_CLIENT_SECRET=…`를 Flutter 실행 또는 빌드 명령에 전달합니다. Desktop OAuth 클라이언트에는 서버용 비밀 키를 사용하지 마세요.
 - **Android**: 앱 패키지와 서명 인증서 SHA-1을 등록한 Android 클라이언트를 만들고 같은 프로젝트의 Web OAuth 클라이언트 ID를 `--dart-define=GOOGLE_SHEETS_SERVER_CLIENT_ID=…`로 전달합니다.
-- **iOS**: 앱 번들 ID로 iOS OAuth 클라이언트를 등록하고 `GOOGLE_SHEETS_IOS_CLIENT_ID`와 `GOOGLE_SHEETS_SERVER_CLIENT_ID`를 dart-define으로 전달합니다. 로컬 파일 `ios/Flutter/GoogleSheets.local.xcconfig`에 `GOOGLE_SHEETS_IOS_REVERSED_CLIENT_ID = com.googleusercontent.apps.…`를 설정합니다.
+- **iOS**: 앱 번들 ID로 iOS OAuth 클라이언트를 등록하고 `GOOGLE_SHEETS_IOS_CLIENT_ID`를 dart-define으로 전달합니다. App Store ID는 비워 둘 수 있습니다. 사용자는 앱에서 본인의 Google 계정으로 로그인하고 Sheets 접근을 허용합니다. 로컬 파일 `ios/Flutter/GoogleSheets.local.xcconfig`에 `GOOGLE_SHEETS_IOS_REVERSED_CLIENT_ID = com.googleusercontent.apps.…`를 설정합니다.
 - **웹**: Google Sheets 로그인이 아직 지원되지 않습니다.
 
 주간 화면의 구름 아이콘에서 기기 이름을 설정하고 로그인합니다. 표시된 계정을 확인하고 시트를 만듭니다. 다른 기기에서도 같은 시트를 선택하면 각 기기의 기록이 모입니다. 앱은 기록을 저장할 때와 실행 중 5분마다 동기화를 시도합니다. 주간 화면과 CSV에서 동기화 상태를 확인할 수 있습니다.

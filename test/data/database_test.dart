@@ -87,6 +87,7 @@ void main() {
         // Recreate the previous schema: v2 added only the work schedule table.
         await original.customStatement('DROP TABLE work_schedules');
         await original.customStatement('DROP TABLE sheet_settings');
+        await original.customStatement('DROP TABLE work_categories');
         for (final column in [
           'end_at',
           'device_name',
@@ -95,6 +96,8 @@ void main() {
           'sheet_state',
           'synced_at',
           'sheet_error',
+          'note',
+          'category',
         ]) {
           await original.customStatement(
             'ALTER TABLE entries DROP COLUMN $column',
@@ -168,14 +171,36 @@ void main() {
         all.map((item) => item.title),
         unorderedEquals(['New work', 'Older work']),
       );
+      await database.customStatement(
+        'UPDATE entries SET created_at = start_at',
+      );
       final row = (await database.exportEntries(
         now,
         now.add(const Duration(days: 1)),
       )).single;
       expect(row.start, now);
-      expect(row.end, now.add(const Duration(hours: 1)));
+      expect(row.end, isNull);
       expect(row.zone, 'Asia/Seoul');
       expect(row.device, 'iOS');
+
+      final nextRegistration = now.add(const Duration(days: 2, minutes: 15));
+      await database.saveCheckIn(
+        title: 'Later work',
+        at: now.add(const Duration(days: 2)),
+        tzName: 'Etc/UTC',
+      );
+      await database.customStatement(
+        "UPDATE entries SET created_at = ? WHERE start_at = ?",
+        [
+          nextRegistration.millisecondsSinceEpoch,
+          now.add(const Duration(days: 2)).millisecondsSinceEpoch,
+        ],
+      );
+      final updated = (await database.exportEntries(
+        now,
+        now.add(const Duration(days: 1)),
+      )).single;
+      expect(updated.end, nextRegistration);
     },
   );
 }

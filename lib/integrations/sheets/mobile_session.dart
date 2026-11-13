@@ -10,14 +10,16 @@ bool get sheetsMobile =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
-bool get sheetsMobileConfigured =>
-    _serverId.isNotEmpty &&
-    (defaultTargetPlatform != TargetPlatform.iOS || _iosId.isNotEmpty);
+bool get sheetsMobileConfigured => defaultTargetPlatform == TargetPlatform.iOS
+    ? _iosId.isNotEmpty
+    : _serverId.isNotEmpty;
 
 Future<void>? _initialization;
 Future<void> _initialize() =>
     _initialization ??= GoogleSignIn.instance.initialize(
-      serverClientId: _serverId,
+      serverClientId: defaultTargetPlatform == TargetPlatform.android
+          ? _serverId
+          : null,
       clientId: defaultTargetPlatform == TargetPlatform.iOS ? _iosId : null,
     );
 

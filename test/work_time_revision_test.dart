@@ -41,6 +41,8 @@ void main() {
           title: '작업, "문서"',
           device: 'Phone',
           platform: 'ios',
+          note: null,
+          category: null,
           sheetState: 'none',
           syncedAt: null,
         ),
@@ -48,8 +50,7 @@ void main() {
       ['entry_id'],
     );
     expect(csv, startsWith('\uFEFF"entry_id"\r\n'));
-    expect(csv, contains('"09:00","10:00","60"'));
-    expect(csv, contains('"작업, ""문서"""'));
+    expect(csv, contains('"09:00","10:00","60","","작업, ""문서"""'));
     expect(csv, contains('"Phone","ios","not_linked",""'));
   });
 }

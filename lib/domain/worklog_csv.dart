@@ -8,6 +8,8 @@ typedef CsvWorkEntry = ({
   DateTime? end,
   String zone,
   String title,
+  String? note,
+  String? category,
   String device,
   String platform,
   String sheetState,
@@ -17,7 +19,9 @@ typedef CsvWorkEntry = ({
 String worklogCsv(Iterable<CsvWorkEntry> entries, List<String> headers) {
   String quote(String value) {
     // Spreadsheet programs can execute a leading formula in text cells.
-    final safe = RegExp(r'^\s*[=+@-]|^[\t\r\n]').hasMatch(value)
+    final safe =
+        RegExp(r'^\s*[=+@-]|^[\t\r\n]').hasMatch(value) &&
+            !RegExp(r'^-\d+$').hasMatch(value)
         ? "'$value"
         : value;
     return '"${safe.replaceAll('"', '""')}"';
@@ -39,10 +43,9 @@ String worklogCsv(Iterable<CsvWorkEntry> entries, List<String> headers) {
           '',
           '',
         ],
-        '',
-        '',
+        row.category ?? '',
         row.title,
-        '',
+        row.note ?? '',
         'checkin',
         'logged',
         row.device,

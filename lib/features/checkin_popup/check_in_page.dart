@@ -12,6 +12,10 @@ import '../../integrations/sheets/sheet_sync.dart';
 import 'dart:async';
 import '../../l10n/generated/app_localizations.dart';
 
+final _categories = StreamProvider.autoDispose<List<String>>(
+  (ref) => ref.watch(databaseProvider).watchCategories(),
+);
+
 class CheckInPage extends ConsumerStatefulWidget {
   const CheckInPage({super.key});
 
@@ -21,6 +25,48 @@ class CheckInPage extends ConsumerStatefulWidget {
 
 class _CheckInPageState extends ConsumerState<CheckInPage> {
   final _activity = TextEditingController();
+  final _note = TextEditingController();
+  String? _category;
+
+  Future<void> _addCategory() async {
+    final strings = AppLocalizations.of(context)!;
+    var name = '';
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(strings.addCategory),
+        content: TextField(
+          autofocus: true,
+          maxLength: 80,
+          decoration: InputDecoration(labelText: strings.categoryLabel),
+          onChanged: (value) => name = value.trim(),
+          onSubmitted: (_) => Navigator.pop(context, name),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, name),
+            child: Text(strings.addCategory),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || selected == null || selected.isEmpty) return;
+    try {
+      final category = await ref.read(databaseProvider).addCategory(selected);
+      if (mounted) setState(() => _category = category);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(strings.saveError)));
+      }
+    }
+  }
+
   List<ActivitySuggestion> _activities = [];
   bool _older = false;
   bool _dismissed = false;
@@ -152,6 +198,7 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
   @override
   void dispose() {
     _activity.dispose();
+    _note.dispose();
     super.dispose();
   }
 
@@ -199,6 +246,8 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
         at: startInstant,
         end: endInstant,
         tzName: tzName,
+        note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+        category: _category,
         deviceName: kIsWeb
             ? 'Web'
             : switch (defaultTargetPlatform) {
@@ -234,6 +283,7 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final matches = _matches;
+    final categories = {...?ref.watch(_categories).value, ?_category}.toList();
     String label(DateTime? date) => date == null
         ? strings.chooseWorkTime
         : '${formatWorkDate(date)} ${TimeOfDay.fromDateTime(date).format(context)}';
@@ -289,6 +339,49 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
                         child: Text(strings.searchOlderActivities),
                       ),
                   ],
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _note,
+                    readOnly: _saving,
+                    minLines: 2,
+                    maxLines: 4,
+                    maxLength: 2000,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: strings.noteLabel,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: _category ?? '',
+                          onChanged: _saving
+                              ? null
+                              : (value) => setState(
+                                  () => _category = value == '' ? null : value,
+                                ),
+                          items: [
+                            DropdownMenuItem(
+                              value: '',
+                              child: Text(strings.noCategory),
+                            ),
+                            for (final category in categories)
+                              DropdownMenuItem(
+                                value: category,
+                                child: Text(category),
+                              ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _saving ? null : _addCategory,
+                        tooltip: strings.addCategory,
+                        icon: const Icon(Icons.add),
+                      ),
+                    ],
+                  ),
                   ExpansionTile(
                     title: Text(strings.workTimeRange),
                     children: [
