@@ -8,6 +8,12 @@
 데스크톱과 모바일에서는 SQLCipher로 로컬 DB를 암호화하고 키는 OS 보안 저장소에 보관합니다.
 웹에서는 브라우저의 해당 사이트 저장소를 사용합니다.
 
+## 작업 시간과 내보내기
+
+- 체크인에서 **작업 시작·종료 시간 지정**을 펼치면 날짜, 시각, IANA 시간대를 선택할 수 있습니다. 시간은 UTC로 저장되며, 주간 기록의 시간 구간은 선택한 시간대로 표시됩니다.
+- 업무 제목을 입력하면 최근 7일 기록에서 추천합니다. 한글 초성과 이전 기록 검색도 지원합니다.
+- 주간 화면에서 날짜 범위를 선택해 CSV를 내보낼 수 있습니다. 새 기록에는 저장 플랫폼이 표시됩니다.
+
 ## 자동 체크인
 
 주간 화면 오른쪽 위의 시계 아이콘에서 근무 요일과 시작·종료 시각, 체크인 간격을 설정합니다.
@@ -47,3 +53,16 @@ DB 스키마 변경 후 `dart run build_runner build`로 Drift 코드를 갱신�
 요구사항과 개발 순서는 [한국어 PRD](docs/LogMyDailyTask_PRD_ko.md),
 [English PRD](docs/LogMyDailyTask_PRD_en.md),
 [개발 가이드](docs/LogMyDailyTask_DEV_GUIDE.md)를 참고하세요.
+
+## Google Sheets 동기화
+
+Google Cloud 프로젝트에서 Sheets API와 Drive API를 활성화하고 OAuth 동의 화면과 테스트 사용자를 설정합니다. 여러 기기에서 같은 Cloud 프로젝트의 OAuth 클라이언트와 같은 Google 계정을 사용하세요.
+
+- **macOS / Windows**: Desktop OAuth 클라이언트를 만든 뒤 `--dart-define=GOOGLE_SHEETS_CLIENT_ID=… --dart-define=GOOGLE_SHEETS_CLIENT_SECRET=…`를 Flutter 실행 또는 빌드 명령에 전달합니다. Desktop OAuth 클라이언트에는 서버용 비밀 키를 사용하지 마세요.
+- **Android**: 앱 패키지와 서명 인증서 SHA-1을 등록한 Android 클라이언트를 만들고 같은 프로젝트의 Web OAuth 클라이언트 ID를 `--dart-define=GOOGLE_SHEETS_SERVER_CLIENT_ID=…`로 전달합니다.
+- **iOS**: 앱 번들 ID로 iOS OAuth 클라이언트를 등록하고 `GOOGLE_SHEETS_IOS_CLIENT_ID`와 `GOOGLE_SHEETS_SERVER_CLIENT_ID`를 dart-define으로 전달합니다. 로컬 파일 `ios/Flutter/GoogleSheets.local.xcconfig`에 `GOOGLE_SHEETS_IOS_REVERSED_CLIENT_ID = com.googleusercontent.apps.…`를 설정합니다.
+- **웹**: Google Sheets 로그인이 아직 지원되지 않습니다.
+
+주간 화면의 구름 아이콘에서 기기 이름을 설정하고 로그인합니다. 표시된 계정을 확인하고 시트를 만듭니다. 다른 기기에서도 같은 시트를 선택하면 각 기기의 기록이 모입니다. 앱은 기록을 저장할 때와 실행 중 5분마다 동기화를 시도합니다. 주간 화면과 CSV에서 동기화 상태를 확인할 수 있습니다.
+
+연동은 `drive.file`과 계정 확인용 범위를 사용합니다. 다른 기기에서 가져온 기록은 읽기 전용입니다. Google Cloud OAuth 값이나 로컬 설정 파일은 저장소에 커밋하지 않습니다.

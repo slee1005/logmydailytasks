@@ -86,6 +86,20 @@ void main() {
         );
         // Recreate the previous schema: v2 added only the work schedule table.
         await original.customStatement('DROP TABLE work_schedules');
+        await original.customStatement('DROP TABLE sheet_settings');
+        for (final column in [
+          'end_at',
+          'device_name',
+          'device_platform',
+          'origin_device',
+          'sheet_state',
+          'synced_at',
+          'sheet_error',
+        ]) {
+          await original.customStatement(
+            'ALTER TABLE entries DROP COLUMN $column',
+          );
+        }
         await original.customStatement('PRAGMA user_version = 1');
       } finally {
         await original.close();
@@ -123,6 +137,45 @@ void main() {
       } finally {
         await reopened.close();
       }
+    },
+  );
+  test(
+    'history uses a seven-day window and export preserves the selected zone',
+    () async {
+      final database = WorklogDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final now = DateTime.utc(2026, 11, 13);
+      await database.saveCheckIn(
+        title: 'Older work',
+        at: now.subtract(const Duration(days: 8)),
+        tzName: 'Etc/UTC',
+      );
+      await database.saveCheckIn(
+        title: 'New work',
+        at: now,
+        end: now.add(const Duration(hours: 1)),
+        tzName: 'Asia/Seoul',
+        deviceName: 'iOS',
+        devicePlatform: 'iOS',
+      );
+      final recent = await database.activitySuggestions(through: now);
+      expect(recent.map((item) => item.title), ['New work']);
+      final all = await database.activitySuggestions(
+        through: now,
+        recentOnly: false,
+      );
+      expect(
+        all.map((item) => item.title),
+        unorderedEquals(['New work', 'Older work']),
+      );
+      final row = (await database.exportEntries(
+        now,
+        now.add(const Duration(days: 1)),
+      )).single;
+      expect(row.start, now);
+      expect(row.end, now.add(const Duration(hours: 1)));
+      expect(row.zone, 'Asia/Seoul');
+      expect(row.device, 'iOS');
     },
   );
 }

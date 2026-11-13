@@ -19,7 +19,7 @@ LogMyDailyTask는 재택·원격 근무자가 정해진 간격마다 짧은 팝�
 
 - 개인용 앱으로 시작한다 (팀·관리자 기능 없음)
 - 무료, 광고 없음, 회원가입 없음
-- 데이터는 기기 로컬에만 저장, 회사 서버로 전송하지 않음
+- 데이터는 기기 로컬에 저장, 회사 서버로 전송하지 않음. 원하면 사용자 본인의 Google Sheet에 모든 기기 기록을 모음
 
 ## 2. 대상 사용자 및 사용 시나리오
 
@@ -81,7 +81,7 @@ LogMyDailyTask는 재택·원격 근무자가 정해진 간격마다 짧은 팝�
 | ID | 요구사항 | 우선순위 |
 | --- | --- | --- |
 | FR-2.1 | 자유 입력(한 줄, 최대 200자) + 선택 메모 | 필수 |
-| FR-2.2 | 입력 시 기존 항목 자동완성(타이핑 중 일치 항목 표시) | 필수 |
+| FR-2.2 | 자동완성: 첫 글자를 입력하는 순간부터 지난 7일 동안 기록한 작업(Activity)에서 일치 항목을 바로 제안. 순서는 앞부분 일치 → 포함 → 한글 초성 일치(예: "ㅁㄴ" → "매뉴얼"), 같은 조건이면 7일 내 사용 횟수가 많고 최근에 쓴 순. 제안마다 카테고리·프로젝트를 함께 보여 주고 선택하면 같이 채움. ↑↓·Enter·Tab으로 선택. 7일 안에 일치가 없으면 "이전 기록에서 찾기"로 전체 항목 검색 | 필수 |
 | FR-2.3 | 팝업 상단에 "직전과 같은 일" 버튼 1개 + 최근 5개 항목 | 필수 |
 | FR-2.4 | 카테고리별 그룹 목록(예: 개발 / 회의 / 지원 / 문서 / 행정) 에서 선택 | 필수 |
 | FR-2.5 | 새 항목 저장 시 카테고리 지정 또는 새 카테고리 생성 | 필수 |
@@ -174,25 +174,58 @@ Google Workspace도 같은 흐름을 쓰며, Google OAuth 앱 검수(민감 스�
 | FR-5.12 | 삭제 대상은 기준일 이전의 Entry와 CalendarEvent. 카테고리·항목·프로젝트는 유지(옵션: 남은 기록이 없는 항목도 정리). 영구 삭제 후 DB 압축(VACUUM)으로 저장 공간 회수 | 필수 |
 | FR-5.13 | 삭제 기준일을 저장해 두고, 예전 백업 파일을 가져올 때 기준일 이전 기록은 다시 들어오지 않게 함 (가져오기 화면에서 포함 여부 선택 가능) | 필수 |
 
+## 8-1. 기능 요구사항 6 — Google Sheets 동기화 · 모바일 CSV 내보내기
+
+사용자가 켜면 모든 기기의 기록이 본인 Google 계정의 스프레드시트 하나에 모여, 어느 기기에서 기록했든 한 곳에서 볼 수 있다. 앱 운영 서버는 여전히 없으며, 각 기기가 직접 Google Sheets API로 쓴다.
+
+| ID | 요구사항 | 우선순위 |
+| --- | --- | --- |
+| FR-6.1 | 설정에서 "Google Sheets에 기록 저장"을 켜기 전에 로그인 확인 필수: Google 로그인 → 계정 이메일 표시 → 시트 생성·쓰기 테스트가 성공해야 연동 활성화 | 필수 |
+| FR-6.2 | 시트 선택: 앱이 새 스프레드시트 "LogMyDailyTask 로그"를 만들거나(기본), 이 앱이 전에 만든 시트에 연결. 모든 기기가 같은 계정·같은 시트를 쓰면 전체 기록을 한 곳에서 확인 | 필수 |
+| FR-6.3 | 최소 권한: `drive.file`(앱이 만든 파일만 접근), 사용자의 다른 Drive 파일에는 접근하지 않음 | 필수 |
+| FR-6.4 | 기록 하나 = 시트 한 행. 기록 ID로 행을 찾아 수정 반영(upsert), 삭제된 기록은 행을 지우지 않고 "삭제됨" 표시 | 필수 |
+| FR-6.5 | 동기화 시점: 기록 저장 직후 시도 + 앱 실행 중 5분마다 대기열 처리, 오프라인이면 대기 후 재시도 | 필수 |
+| FR-6.6 | 모든 기록에 저장한 기기 표시: 기기 이름(사용자가 변경 가능, 예: "John의 MacBook")과 플랫폼(Windows / macOS / iOS / Android / Web). 앱의 주간 표·목록과 시트 모두에 표시 | 필수 |
+| FR-6.7 | 기록마다 시트 반영 상태 표시: 반영됨 / 대기 중 / 실패(이유) / 연동 안 함. 기록을 고치면 다시 반영될 때까지 "대기 중" | 필수 |
+| FR-6.8 | 로그인 만료·권한 취소·시트 삭제를 감지하면 동기화를 멈추고 "다시 로그인" 배너 표시. 기록은 로컬에 계속 쌓이고 대기 상태로 유지 | 필수 |
+| FR-6.9 | 다른 기기가 시트에 올린 기록을 가져와 앱 주간 표에도 함께 표시 (기기별 필터) | 권장 |
+| FR-6.10 | 로컬 오래된 데이터 삭제(FR-5.10)는 시트의 행을 지우지 않음 (옵션: 시트에서도 삭제) | 필수 |
+| FR-6.11 | 모바일 CSV 내보내기: 기간·필터 선택 → CSV 생성 → 공유 시트로 메일·메신저·파일 앱에 보내기. UTF-8 (BOM 포함, Excel 한글 깨짐 방지) | 필수 |
+| FR-6.12 | CSV 각 행에 기기 이름, 시트 반영 상태(반영됨 / 대기 중 / 실패 / 연동 안 함), 반영 시각 포함 | 필수 |
+
+**시트 구조 ("Log" 탭, 1행은 머리글)**
+
+| 열 | 이름 | 예시 |
+| --- | --- | --- |
+| A | entry_id | 0193f2c1-… |
+| B–D | 날짜 · 시작 · 종료 (현지 시간) | 2026-11-12 · 10:30 · 12:00 |
+| E | 시간(분) | 90 |
+| F–H | 카테고리 · 프로젝트 · 내용 | 개발 · Client A · API 연동 |
+| I–K | 메모 · 출처 · 상태 | — · checkin · logged |
+| L–M | 기기 이름 · 플랫폼 | John의 MacBook · macOS |
+| N–O | 수정 시각(UTC) · 삭제됨 | 2026-11-12T18:02Z · FALSE |
+
+사용자가 시트에서 행 순서를 바꾸거나 정렬해도 A열의 entry_id로 행을 다시 찾는다. 시트에서 직접 고친 값은 앱으로 되돌아오지 않으며(앱 → 시트 단방향, FR-6.9의 가져오기는 다른 기기 기록만 해당), 이 점을 설정 화면에 안내한다.
+
 ## 9. 비기능 요구사항
 
 팝업은 가볍고 정확해야 하며, 업무 기록이라는 민감한 데이터를 안전하게 다뤄야 한다.
 
 | 구분 | 요구사항 |
 | --- | --- |
-| 성능 | 팝업 표시 1초 이내, 데스크톱 상주 메모리 150MB 이하, 유휴 시 CPU 1% 미만 |
+| 성능 | 팝업 표시 1초 이내, 자동완성 제안은 키 입력 후 50ms 이내, 데스크톱 상주 메모리 150MB 이하, 유휴 시 CPU 1% 미만 |
 | 정확성 | 알림 시각 오차 ±1분 이내 (모바일은 OS 정책상 ±5분 허용, 웹은 탭이 열려 있을 때만) |
 | 오프라인 | 캘린더 조회를 제외한 모든 기능이 네트워크 없이 동작 |
 | 보안 | 로컬 DB 암호화 (데스크톱·모바일), OAuth 토큰은 OS 보안 저장소(Keychain / Windows Credential Manager / Android Keystore)에 보관, 백업 파일 비밀번호 암호화 옵션 |
-| 개인정보 | 서버·계정 없음, 화면 캡처·키 입력·앱 사용 추적 없음, 사용 통계는 사용자가 켤 때만 익명 수집 |
+| 개인정보 | 앱 운영 서버·계정 없음(Google Sheet 동기화는 사용자 본인 계정으로, 켤 때만), 화면 캡처·키 입력·앱 사용 추적 없음, 사용 통계는 사용자가 켤 때만 익명 수집 |
 | 데이터 소유 | 데이터는 사용자 기기에만 존재, 언제든 내보내기·삭제 가능 |
 | 접근성 | 키보드만으로 팝업 조작, 스크린리더 레이블, 글자 크기 확대 대응 |
-| 다국어 | 한국어·영어 UI (1단계), 날짜·시간 형식 지역화 |
+| 다국어 | 한국어·영어 UI (1단계), 날짜는 한/영 모두 짧은 형식 Ddd, M/D/YYYY(예: Fri, 11/13/2026)로 표시, 시트·CSV·백업은 정렬용 YYYY-MM-DD 유지 |
 | 비용 | 무료 앱이므로 운영 서버 비용 0을 목표 (웹은 정적 호스팅만 사용) |
 
 ## 10. 데이터 모델
 
-핵심 엔터티는 9개이며, 모든 레코드는 백업 병합을 위해 `updated_at`과 소프트 삭제(`deleted_at`)를 가진다.
+핵심 엔터티는 11개이며, 모든 레코드는 백업 병합을 위해 `updated_at`과 소프트 삭제(`deleted_at`)를 가진다.
 
 | 엔터티 | 주요 필드 | 설명 |
 | --- | --- | --- |
@@ -201,10 +234,12 @@ Google Workspace도 같은 흐름을 쓰며, Google OAuth 앱 검수(민감 스�
 | Category | id, name, color, sort_order, archived | 업무 분류 |
 | Project | id, name, client, color, status (active / awaiting_feedback / completed), hourly_rate (nullable), currency | 프로젝트·고객과 단가 (참고 프로젝트의 Project + Rate를 개인용으로 합침) |
 | Activity | id, category_id, project_id (nullable), title, tags, last_used_at, use_count, pinned | 재사용되는 작업 항목 |
-| Entry | id, activity_id (nullable), project_id (nullable), start_at (UTC), end_at (UTC, nullable = 진행 중 타이머), tz_name, note, source (checkin / manual / calendar / timer), status (logged / missed / break), parent_entry_id (nullable, 긴 미팅 안의 체크인), device_id | 시간 구간 기록, 소요 시간·금액은 저장하지 않고 계산 |
+| Entry | id, activity_id (nullable), project_id (nullable), start_at (UTC), end_at (UTC, nullable = 진행 중 타이머), tz_name, note, source (checkin / manual / calendar / timer), status (logged / missed / break), parent_entry_id (nullable, 긴 미팅 안의 체크인), device_id, sheet_sync_state (none / pending / synced / failed), sheet_synced_at, sheet_error | 시간 구간 기록, 소요 시간·금액은 저장하지 않고 계산 |
 | SavedFilter | id, name, kind (fixed / relative), date_from, date_to, amount, unit (day / week / month / year), category_id, project_id, source | 저장된 로그 필터 (참고 프로젝트의 Static / Relative 필터) |
 | CalendarConnection | id, provider (outlook / google / ics), account_email, secure_storage_key, sync_cursor, filters | 캘린더 연결 정보 (토큰 자체는 OS 보안 저장소) |
 | CalendarEvent | id, connection_id, external_id, title, start_at, end_at, attendee_count, online_link_type, response_status | 가져온 미팅 (Entry와 연결) |
+| Device | id, name (사용자 변경 가능), platform (windows / macos / ios / android / web), is_this_device, last_seen_at | 기록을 저장한 기기 (시트에서 가져온 다른 기기 포함) |
+| SheetConnection | id, account_email, spreadsheet_id, sheet_name, secure_storage_key, enabled, last_synced_at, last_error, import_others | Google Sheets 연결 정보 (토큰은 OS 보안 저장소) |
 
 진행 중 타이머는 `end_at`이 비어 있는 Entry 하나로 표현하며, 동시에 하나만 허용한다. 금액은 `(end_at − start_at) × hourly_rate`로 표시할 때 계산한다.
 
@@ -227,7 +262,7 @@ Google Workspace도 같은 흐름을 쓰며, Google OAuth 앱 검수(민감 스�
                │ 백업 파일 내보내기·가져오기   │ 읽기 전용
                ▼                               ▼
    내 파일 · 내 클라우드 폴더         Microsoft Graph    Google Calendar API
-   (자동 병합은 2단계)                (Outlook 일정)     (Google 일정)
+   (자동 병합은 2단계)                (Outlook 일정)     (캘린더 읽기 · Sheets 기록)
 ```
 
 | 계층 | 추천 | 대안 | 이유 |
@@ -239,6 +274,7 @@ Google Workspace도 같은 흐름을 쓰며, Google OAuth 앱 검수(민감 스�
 | 알림 | OS 로컬 알림, 브라우저 Notification API | — | 푸시 서버 불필요 |
 | 내보내기 | 앱 안에서 xlsx·CSV·PDF 생성 | — | 데이터가 기기 밖으로 나가지 않음 |
 | 웹 호스팅 | 정적 호스팅 (예: Cloudflare Pages) | GitHub Pages | 서버 코드 없음, 비용 거의 0 |
+| 로그 모으기 | Google Sheets API (values.append / batchUpdate), drive.file 스코프 | — | 서버 없이 모든 기기 기록을 사용자 본인 시트 한 곳에 모음 |
 
 1단계에는 Laravel 같은 API 서버가 필요 없다. 2단계 자동 동기화도 사용자 클라우드 폴더를 쓰면 서버 없이 유지할 수 있다.
 
@@ -286,7 +322,7 @@ MVP는 웹을 포함한 5개 플랫폼에서 체크인·카테고리·캘린더 
 
 | 단계 | 포함 범위 |
 | --- | --- |
-| MVP (1단계) | Windows·macOS·iOS·Android·웹, FR-1 체크인(사용자 지정 간격, 미팅 중 정지, 보조 타이머), FR-2 입력·카테고리·프로젝트(상태, 단가), FR-3 Outlook + Google + ICS 읽기 연동과 관리자 동의 안내, FR-4 주간 표 + 필터 + 금액 열 + Excel/CSV 내보내기, FR-5 로컬 저장·백업, 한/영 UI |
+| MVP (1단계) | Windows·macOS·iOS·Android·웹, FR-1 체크인(사용자 지정 간격, 미팅 중 정지, 보조 타이머), FR-2 입력·카테고리·프로젝트(상태, 단가), FR-3 Outlook + Google + ICS 읽기 연동과 관리자 동의 안내, FR-4 주간 표 + 필터 + 금액 열 + Excel/CSV 내보내기, FR-5 로컬 저장·백업, FR-6 Google Sheets 동기화·모바일 CSV 내보내기, 한/영 UI |
 | 2단계 | 사용자 클라우드 폴더를 통한 기기 간 자동 병합, 기기 간 알림 자동 닫힘, 유휴 감지, PDF 내보내기, 저장된 필터, 미팅 후 메모 팝업 |
 | 3단계 | 기기 안에서 동작하는 카테고리 추천·주간 요약, 타임시트 양식 내보내기 템플릿 |
 
@@ -315,6 +351,9 @@ MVP는 웹을 포함한 5개 플랫폼에서 체크인·카테고리·캘린더 
 | 앱 이름 | LogMyDailyTask (LogMyWork에서 변경) | 전체 |
 | 로컬 DB | 모든 플랫폼에서 같은 스키마의 SQLite (drift), 데스크톱·모바일은 SQLCipher 암호화, 웹은 SQLite WASM | 3, 10, 11장 |
 | 오래된 데이터 | 3개월·6개월 이전 수동 삭제 + 자동 정리 옵션 | FR-5.10–5.13 |
+| 날짜 표시 형식 | 화면에서는 Ddd, M/D/YYYY (예: Mon, 11/9/2026), 시트·CSV는 YYYY-MM-DD | 9장 다국어 |
+| 자동완성 기준 | 첫 글자부터, 지난 7일 기록 기반 (초성 검색 포함), 없으면 이전 기록 검색 제안 | FR-2.2 |
+| 여러 기기 기록 모으기 | 사용자 본인 Google Sheet에 동기화 (로그인 확인 후), 기록마다 기기 이름과 시트 반영 상태 표시, 모바일은 CSV로 공유 | 8-1장 (FR-6) |
 
 **남은 확인 사항**
 

@@ -451,6 +451,82 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _endAtMeta = const VerificationMeta('endAt');
+  @override
+  late final GeneratedColumn<int> endAt = GeneratedColumn<int>(
+    'end_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deviceNameMeta = const VerificationMeta(
+    'deviceName',
+  );
+  @override
+  late final GeneratedColumn<String> deviceName = GeneratedColumn<String>(
+    'device_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _devicePlatformMeta = const VerificationMeta(
+    'devicePlatform',
+  );
+  @override
+  late final GeneratedColumn<String> devicePlatform = GeneratedColumn<String>(
+    'device_platform',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originDeviceMeta = const VerificationMeta(
+    'originDevice',
+  );
+  @override
+  late final GeneratedColumn<String> originDevice = GeneratedColumn<String>(
+    'origin_device',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sheetStateMeta = const VerificationMeta(
+    'sheetState',
+  );
+  @override
+  late final GeneratedColumn<String> sheetState = GeneratedColumn<String>(
+    'sheet_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('none'),
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAt = GeneratedColumn<int>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sheetErrorMeta = const VerificationMeta(
+    'sheetError',
+  );
+  @override
+  late final GeneratedColumn<String> sheetError = GeneratedColumn<String>(
+    'sheet_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _tzNameMeta = const VerificationMeta('tzName');
   @override
   late final GeneratedColumn<String> tzName = GeneratedColumn<String>(
@@ -498,6 +574,13 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
     id,
     activityId,
     startAt,
+    endAt,
+    deviceName,
+    devicePlatform,
+    originDevice,
+    sheetState,
+    syncedAt,
+    sheetError,
     tzName,
     createdAt,
     updatedAt,
@@ -535,6 +618,54 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
       );
     } else if (isInserting) {
       context.missing(_startAtMeta);
+    }
+    if (data.containsKey('end_at')) {
+      context.handle(
+        _endAtMeta,
+        endAt.isAcceptableOrUnknown(data['end_at']!, _endAtMeta),
+      );
+    }
+    if (data.containsKey('device_name')) {
+      context.handle(
+        _deviceNameMeta,
+        deviceName.isAcceptableOrUnknown(data['device_name']!, _deviceNameMeta),
+      );
+    }
+    if (data.containsKey('device_platform')) {
+      context.handle(
+        _devicePlatformMeta,
+        devicePlatform.isAcceptableOrUnknown(
+          data['device_platform']!,
+          _devicePlatformMeta,
+        ),
+      );
+    }
+    if (data.containsKey('origin_device')) {
+      context.handle(
+        _originDeviceMeta,
+        originDevice.isAcceptableOrUnknown(
+          data['origin_device']!,
+          _originDeviceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sheet_state')) {
+      context.handle(
+        _sheetStateMeta,
+        sheetState.isAcceptableOrUnknown(data['sheet_state']!, _sheetStateMeta),
+      );
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('sheet_error')) {
+      context.handle(
+        _sheetErrorMeta,
+        sheetError.isAcceptableOrUnknown(data['sheet_error']!, _sheetErrorMeta),
+      );
     }
     if (data.containsKey('tz_name')) {
       context.handle(
@@ -587,6 +718,34 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, WorkEntry> {
         DriftSqlType.int,
         data['${effectivePrefix}start_at'],
       )!,
+      endAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_at'],
+      ),
+      deviceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_name'],
+      ),
+      devicePlatform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_platform'],
+      ),
+      originDevice: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_device'],
+      ),
+      sheetState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sheet_state'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at'],
+      ),
+      sheetError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sheet_error'],
+      ),
       tzName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}tz_name'],
@@ -616,6 +775,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
   final String id;
   final String activityId;
   final int startAt;
+  final int? endAt;
+  final String? deviceName;
+  final String? devicePlatform;
+  final String? originDevice;
+  final String sheetState;
+  final int? syncedAt;
+  final String? sheetError;
   final String tzName;
   final int createdAt;
   final int updatedAt;
@@ -624,6 +790,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     required this.id,
     required this.activityId,
     required this.startAt,
+    this.endAt,
+    this.deviceName,
+    this.devicePlatform,
+    this.originDevice,
+    required this.sheetState,
+    this.syncedAt,
+    this.sheetError,
     required this.tzName,
     required this.createdAt,
     required this.updatedAt,
@@ -635,6 +808,25 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     map['id'] = Variable<String>(id);
     map['activity_id'] = Variable<String>(activityId);
     map['start_at'] = Variable<int>(startAt);
+    if (!nullToAbsent || endAt != null) {
+      map['end_at'] = Variable<int>(endAt);
+    }
+    if (!nullToAbsent || deviceName != null) {
+      map['device_name'] = Variable<String>(deviceName);
+    }
+    if (!nullToAbsent || devicePlatform != null) {
+      map['device_platform'] = Variable<String>(devicePlatform);
+    }
+    if (!nullToAbsent || originDevice != null) {
+      map['origin_device'] = Variable<String>(originDevice);
+    }
+    map['sheet_state'] = Variable<String>(sheetState);
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<int>(syncedAt);
+    }
+    if (!nullToAbsent || sheetError != null) {
+      map['sheet_error'] = Variable<String>(sheetError);
+    }
     map['tz_name'] = Variable<String>(tzName);
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
@@ -649,6 +841,25 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
       id: Value(id),
       activityId: Value(activityId),
       startAt: Value(startAt),
+      endAt: endAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endAt),
+      deviceName: deviceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceName),
+      devicePlatform: devicePlatform == null && nullToAbsent
+          ? const Value.absent()
+          : Value(devicePlatform),
+      originDevice: originDevice == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originDevice),
+      sheetState: Value(sheetState),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      sheetError: sheetError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sheetError),
       tzName: Value(tzName),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -667,6 +878,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
       id: serializer.fromJson<String>(json['id']),
       activityId: serializer.fromJson<String>(json['activityId']),
       startAt: serializer.fromJson<int>(json['startAt']),
+      endAt: serializer.fromJson<int?>(json['endAt']),
+      deviceName: serializer.fromJson<String?>(json['deviceName']),
+      devicePlatform: serializer.fromJson<String?>(json['devicePlatform']),
+      originDevice: serializer.fromJson<String?>(json['originDevice']),
+      sheetState: serializer.fromJson<String>(json['sheetState']),
+      syncedAt: serializer.fromJson<int?>(json['syncedAt']),
+      sheetError: serializer.fromJson<String?>(json['sheetError']),
       tzName: serializer.fromJson<String>(json['tzName']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
@@ -680,6 +898,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
       'id': serializer.toJson<String>(id),
       'activityId': serializer.toJson<String>(activityId),
       'startAt': serializer.toJson<int>(startAt),
+      'endAt': serializer.toJson<int?>(endAt),
+      'deviceName': serializer.toJson<String?>(deviceName),
+      'devicePlatform': serializer.toJson<String?>(devicePlatform),
+      'originDevice': serializer.toJson<String?>(originDevice),
+      'sheetState': serializer.toJson<String>(sheetState),
+      'syncedAt': serializer.toJson<int?>(syncedAt),
+      'sheetError': serializer.toJson<String?>(sheetError),
       'tzName': serializer.toJson<String>(tzName),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
@@ -691,6 +916,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     String? id,
     String? activityId,
     int? startAt,
+    Value<int?> endAt = const Value.absent(),
+    Value<String?> deviceName = const Value.absent(),
+    Value<String?> devicePlatform = const Value.absent(),
+    Value<String?> originDevice = const Value.absent(),
+    String? sheetState,
+    Value<int?> syncedAt = const Value.absent(),
+    Value<String?> sheetError = const Value.absent(),
     String? tzName,
     int? createdAt,
     int? updatedAt,
@@ -699,6 +931,15 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     id: id ?? this.id,
     activityId: activityId ?? this.activityId,
     startAt: startAt ?? this.startAt,
+    endAt: endAt.present ? endAt.value : this.endAt,
+    deviceName: deviceName.present ? deviceName.value : this.deviceName,
+    devicePlatform: devicePlatform.present
+        ? devicePlatform.value
+        : this.devicePlatform,
+    originDevice: originDevice.present ? originDevice.value : this.originDevice,
+    sheetState: sheetState ?? this.sheetState,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    sheetError: sheetError.present ? sheetError.value : this.sheetError,
     tzName: tzName ?? this.tzName,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -711,6 +952,23 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
           ? data.activityId.value
           : this.activityId,
       startAt: data.startAt.present ? data.startAt.value : this.startAt,
+      endAt: data.endAt.present ? data.endAt.value : this.endAt,
+      deviceName: data.deviceName.present
+          ? data.deviceName.value
+          : this.deviceName,
+      devicePlatform: data.devicePlatform.present
+          ? data.devicePlatform.value
+          : this.devicePlatform,
+      originDevice: data.originDevice.present
+          ? data.originDevice.value
+          : this.originDevice,
+      sheetState: data.sheetState.present
+          ? data.sheetState.value
+          : this.sheetState,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      sheetError: data.sheetError.present
+          ? data.sheetError.value
+          : this.sheetError,
       tzName: data.tzName.present ? data.tzName.value : this.tzName,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -724,6 +982,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
           ..write('id: $id, ')
           ..write('activityId: $activityId, ')
           ..write('startAt: $startAt, ')
+          ..write('endAt: $endAt, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('devicePlatform: $devicePlatform, ')
+          ..write('originDevice: $originDevice, ')
+          ..write('sheetState: $sheetState, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('sheetError: $sheetError, ')
           ..write('tzName: $tzName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -737,6 +1002,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
     id,
     activityId,
     startAt,
+    endAt,
+    deviceName,
+    devicePlatform,
+    originDevice,
+    sheetState,
+    syncedAt,
+    sheetError,
     tzName,
     createdAt,
     updatedAt,
@@ -749,6 +1021,13 @@ class WorkEntry extends DataClass implements Insertable<WorkEntry> {
           other.id == this.id &&
           other.activityId == this.activityId &&
           other.startAt == this.startAt &&
+          other.endAt == this.endAt &&
+          other.deviceName == this.deviceName &&
+          other.devicePlatform == this.devicePlatform &&
+          other.originDevice == this.originDevice &&
+          other.sheetState == this.sheetState &&
+          other.syncedAt == this.syncedAt &&
+          other.sheetError == this.sheetError &&
           other.tzName == this.tzName &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -759,6 +1038,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
   final Value<String> id;
   final Value<String> activityId;
   final Value<int> startAt;
+  final Value<int?> endAt;
+  final Value<String?> deviceName;
+  final Value<String?> devicePlatform;
+  final Value<String?> originDevice;
+  final Value<String> sheetState;
+  final Value<int?> syncedAt;
+  final Value<String?> sheetError;
   final Value<String> tzName;
   final Value<int> createdAt;
   final Value<int> updatedAt;
@@ -768,6 +1054,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     this.id = const Value.absent(),
     this.activityId = const Value.absent(),
     this.startAt = const Value.absent(),
+    this.endAt = const Value.absent(),
+    this.deviceName = const Value.absent(),
+    this.devicePlatform = const Value.absent(),
+    this.originDevice = const Value.absent(),
+    this.sheetState = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.sheetError = const Value.absent(),
     this.tzName = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -778,6 +1071,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     required String id,
     required String activityId,
     required int startAt,
+    this.endAt = const Value.absent(),
+    this.deviceName = const Value.absent(),
+    this.devicePlatform = const Value.absent(),
+    this.originDevice = const Value.absent(),
+    this.sheetState = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.sheetError = const Value.absent(),
     required String tzName,
     required int createdAt,
     required int updatedAt,
@@ -793,6 +1093,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     Expression<String>? id,
     Expression<String>? activityId,
     Expression<int>? startAt,
+    Expression<int>? endAt,
+    Expression<String>? deviceName,
+    Expression<String>? devicePlatform,
+    Expression<String>? originDevice,
+    Expression<String>? sheetState,
+    Expression<int>? syncedAt,
+    Expression<String>? sheetError,
     Expression<String>? tzName,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
@@ -803,6 +1110,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
       if (id != null) 'id': id,
       if (activityId != null) 'activity_id': activityId,
       if (startAt != null) 'start_at': startAt,
+      if (endAt != null) 'end_at': endAt,
+      if (deviceName != null) 'device_name': deviceName,
+      if (devicePlatform != null) 'device_platform': devicePlatform,
+      if (originDevice != null) 'origin_device': originDevice,
+      if (sheetState != null) 'sheet_state': sheetState,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (sheetError != null) 'sheet_error': sheetError,
       if (tzName != null) 'tz_name': tzName,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -815,6 +1129,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     Value<String>? id,
     Value<String>? activityId,
     Value<int>? startAt,
+    Value<int?>? endAt,
+    Value<String?>? deviceName,
+    Value<String?>? devicePlatform,
+    Value<String?>? originDevice,
+    Value<String>? sheetState,
+    Value<int?>? syncedAt,
+    Value<String?>? sheetError,
     Value<String>? tzName,
     Value<int>? createdAt,
     Value<int>? updatedAt,
@@ -825,6 +1146,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
       id: id ?? this.id,
       activityId: activityId ?? this.activityId,
       startAt: startAt ?? this.startAt,
+      endAt: endAt ?? this.endAt,
+      deviceName: deviceName ?? this.deviceName,
+      devicePlatform: devicePlatform ?? this.devicePlatform,
+      originDevice: originDevice ?? this.originDevice,
+      sheetState: sheetState ?? this.sheetState,
+      syncedAt: syncedAt ?? this.syncedAt,
+      sheetError: sheetError ?? this.sheetError,
       tzName: tzName ?? this.tzName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -844,6 +1172,27 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
     }
     if (startAt.present) {
       map['start_at'] = Variable<int>(startAt.value);
+    }
+    if (endAt.present) {
+      map['end_at'] = Variable<int>(endAt.value);
+    }
+    if (deviceName.present) {
+      map['device_name'] = Variable<String>(deviceName.value);
+    }
+    if (devicePlatform.present) {
+      map['device_platform'] = Variable<String>(devicePlatform.value);
+    }
+    if (originDevice.present) {
+      map['origin_device'] = Variable<String>(originDevice.value);
+    }
+    if (sheetState.present) {
+      map['sheet_state'] = Variable<String>(sheetState.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<int>(syncedAt.value);
+    }
+    if (sheetError.present) {
+      map['sheet_error'] = Variable<String>(sheetError.value);
     }
     if (tzName.present) {
       map['tz_name'] = Variable<String>(tzName.value);
@@ -869,6 +1218,13 @@ class EntriesCompanion extends UpdateCompanion<WorkEntry> {
           ..write('id: $id, ')
           ..write('activityId: $activityId, ')
           ..write('startAt: $startAt, ')
+          ..write('endAt: $endAt, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('devicePlatform: $devicePlatform, ')
+          ..write('originDevice: $originDevice, ')
+          ..write('sheetState: $sheetState, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('sheetError: $sheetError, ')
           ..write('tzName: $tzName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -1350,12 +1706,421 @@ class WorkSchedulesCompanion extends UpdateCompanion<WorkSchedule> {
   }
 }
 
+class $SheetSettingsTable extends SheetSettings
+    with TableInfo<$SheetSettingsTable, SheetSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SheetSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceLabelMeta = const VerificationMeta(
+    'deviceLabel',
+  );
+  @override
+  late final GeneratedColumn<String> deviceLabel = GeneratedColumn<String>(
+    'device_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accountMeta = const VerificationMeta(
+    'account',
+  );
+  @override
+  late final GeneratedColumn<String> account = GeneratedColumn<String>(
+    'account',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _spreadsheetMeta = const VerificationMeta(
+    'spreadsheet',
+  );
+  @override
+  late final GeneratedColumn<String> spreadsheet = GeneratedColumn<String>(
+    'spreadsheet',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+    'error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deviceId,
+    deviceLabel,
+    account,
+    spreadsheet,
+    error,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sheet_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SheetSetting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('device_label')) {
+      context.handle(
+        _deviceLabelMeta,
+        deviceLabel.isAcceptableOrUnknown(
+          data['device_label']!,
+          _deviceLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('account')) {
+      context.handle(
+        _accountMeta,
+        account.isAcceptableOrUnknown(data['account']!, _accountMeta),
+      );
+    }
+    if (data.containsKey('spreadsheet')) {
+      context.handle(
+        _spreadsheetMeta,
+        spreadsheet.isAcceptableOrUnknown(
+          data['spreadsheet']!,
+          _spreadsheetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+        _errorMeta,
+        error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SheetSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SheetSetting(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      deviceLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_label'],
+      ),
+      account: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account'],
+      ),
+      spreadsheet: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}spreadsheet'],
+      ),
+      error: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error'],
+      ),
+    );
+  }
+
+  @override
+  $SheetSettingsTable createAlias(String alias) {
+    return $SheetSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class SheetSetting extends DataClass implements Insertable<SheetSetting> {
+  final int id;
+  final String deviceId;
+  final String? deviceLabel;
+  final String? account;
+  final String? spreadsheet;
+  final String? error;
+  const SheetSetting({
+    required this.id,
+    required this.deviceId,
+    this.deviceLabel,
+    this.account,
+    this.spreadsheet,
+    this.error,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    if (!nullToAbsent || deviceLabel != null) {
+      map['device_label'] = Variable<String>(deviceLabel);
+    }
+    if (!nullToAbsent || account != null) {
+      map['account'] = Variable<String>(account);
+    }
+    if (!nullToAbsent || spreadsheet != null) {
+      map['spreadsheet'] = Variable<String>(spreadsheet);
+    }
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    return map;
+  }
+
+  SheetSettingsCompanion toCompanion(bool nullToAbsent) {
+    return SheetSettingsCompanion(
+      id: Value(id),
+      deviceId: Value(deviceId),
+      deviceLabel: deviceLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceLabel),
+      account: account == null && nullToAbsent
+          ? const Value.absent()
+          : Value(account),
+      spreadsheet: spreadsheet == null && nullToAbsent
+          ? const Value.absent()
+          : Value(spreadsheet),
+      error: error == null && nullToAbsent
+          ? const Value.absent()
+          : Value(error),
+    );
+  }
+
+  factory SheetSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SheetSetting(
+      id: serializer.fromJson<int>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      deviceLabel: serializer.fromJson<String?>(json['deviceLabel']),
+      account: serializer.fromJson<String?>(json['account']),
+      spreadsheet: serializer.fromJson<String?>(json['spreadsheet']),
+      error: serializer.fromJson<String?>(json['error']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'deviceLabel': serializer.toJson<String?>(deviceLabel),
+      'account': serializer.toJson<String?>(account),
+      'spreadsheet': serializer.toJson<String?>(spreadsheet),
+      'error': serializer.toJson<String?>(error),
+    };
+  }
+
+  SheetSetting copyWith({
+    int? id,
+    String? deviceId,
+    Value<String?> deviceLabel = const Value.absent(),
+    Value<String?> account = const Value.absent(),
+    Value<String?> spreadsheet = const Value.absent(),
+    Value<String?> error = const Value.absent(),
+  }) => SheetSetting(
+    id: id ?? this.id,
+    deviceId: deviceId ?? this.deviceId,
+    deviceLabel: deviceLabel.present ? deviceLabel.value : this.deviceLabel,
+    account: account.present ? account.value : this.account,
+    spreadsheet: spreadsheet.present ? spreadsheet.value : this.spreadsheet,
+    error: error.present ? error.value : this.error,
+  );
+  SheetSetting copyWithCompanion(SheetSettingsCompanion data) {
+    return SheetSetting(
+      id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      deviceLabel: data.deviceLabel.present
+          ? data.deviceLabel.value
+          : this.deviceLabel,
+      account: data.account.present ? data.account.value : this.account,
+      spreadsheet: data.spreadsheet.present
+          ? data.spreadsheet.value
+          : this.spreadsheet,
+      error: data.error.present ? data.error.value : this.error,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SheetSetting(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('deviceLabel: $deviceLabel, ')
+          ..write('account: $account, ')
+          ..write('spreadsheet: $spreadsheet, ')
+          ..write('error: $error')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, deviceId, deviceLabel, account, spreadsheet, error);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SheetSetting &&
+          other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.deviceLabel == this.deviceLabel &&
+          other.account == this.account &&
+          other.spreadsheet == this.spreadsheet &&
+          other.error == this.error);
+}
+
+class SheetSettingsCompanion extends UpdateCompanion<SheetSetting> {
+  final Value<int> id;
+  final Value<String> deviceId;
+  final Value<String?> deviceLabel;
+  final Value<String?> account;
+  final Value<String?> spreadsheet;
+  final Value<String?> error;
+  const SheetSettingsCompanion({
+    this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.deviceLabel = const Value.absent(),
+    this.account = const Value.absent(),
+    this.spreadsheet = const Value.absent(),
+    this.error = const Value.absent(),
+  });
+  SheetSettingsCompanion.insert({
+    this.id = const Value.absent(),
+    required String deviceId,
+    this.deviceLabel = const Value.absent(),
+    this.account = const Value.absent(),
+    this.spreadsheet = const Value.absent(),
+    this.error = const Value.absent(),
+  }) : deviceId = Value(deviceId);
+  static Insertable<SheetSetting> custom({
+    Expression<int>? id,
+    Expression<String>? deviceId,
+    Expression<String>? deviceLabel,
+    Expression<String>? account,
+    Expression<String>? spreadsheet,
+    Expression<String>? error,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (deviceLabel != null) 'device_label': deviceLabel,
+      if (account != null) 'account': account,
+      if (spreadsheet != null) 'spreadsheet': spreadsheet,
+      if (error != null) 'error': error,
+    });
+  }
+
+  SheetSettingsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? deviceId,
+    Value<String?>? deviceLabel,
+    Value<String?>? account,
+    Value<String?>? spreadsheet,
+    Value<String?>? error,
+  }) {
+    return SheetSettingsCompanion(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      deviceLabel: deviceLabel ?? this.deviceLabel,
+      account: account ?? this.account,
+      spreadsheet: spreadsheet ?? this.spreadsheet,
+      error: error ?? this.error,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (deviceLabel.present) {
+      map['device_label'] = Variable<String>(deviceLabel.value);
+    }
+    if (account.present) {
+      map['account'] = Variable<String>(account.value);
+    }
+    if (spreadsheet.present) {
+      map['spreadsheet'] = Variable<String>(spreadsheet.value);
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SheetSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('deviceLabel: $deviceLabel, ')
+          ..write('account: $account, ')
+          ..write('spreadsheet: $spreadsheet, ')
+          ..write('error: $error')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$WorklogDatabase extends GeneratedDatabase {
   _$WorklogDatabase(QueryExecutor e) : super(e);
   $WorklogDatabaseManager get managers => $WorklogDatabaseManager(this);
   late final $ActivitiesTable activities = $ActivitiesTable(this);
   late final $EntriesTable entries = $EntriesTable(this);
   late final $WorkSchedulesTable workSchedules = $WorkSchedulesTable(this);
+  late final $SheetSettingsTable sheetSettings = $SheetSettingsTable(this);
   late final Index entryStartIdx = Index(
     'entry_start_idx',
     'CREATE INDEX entry_start_idx ON entries (start_at)',
@@ -1368,6 +2133,7 @@ abstract class _$WorklogDatabase extends GeneratedDatabase {
     activities,
     entries,
     workSchedules,
+    sheetSettings,
     entryStartIdx,
   ];
 }
@@ -1699,6 +2465,13 @@ typedef $$EntriesTableCreateCompanionBuilder =
       required String id,
       required String activityId,
       required int startAt,
+      Value<int?> endAt,
+      Value<String?> deviceName,
+      Value<String?> devicePlatform,
+      Value<String?> originDevice,
+      Value<String> sheetState,
+      Value<int?> syncedAt,
+      Value<String?> sheetError,
       required String tzName,
       required int createdAt,
       required int updatedAt,
@@ -1710,6 +2483,13 @@ typedef $$EntriesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> activityId,
       Value<int> startAt,
+      Value<int?> endAt,
+      Value<String?> deviceName,
+      Value<String?> devicePlatform,
+      Value<String?> originDevice,
+      Value<String> sheetState,
+      Value<int?> syncedAt,
+      Value<String?> sheetError,
       Value<String> tzName,
       Value<int> createdAt,
       Value<int> updatedAt,
@@ -1755,6 +2535,41 @@ class $$EntriesTableFilterComposer
 
   ColumnFilters<int> get startAt => $composableBuilder(
     column: $table.startAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endAt => $composableBuilder(
+    column: $table.endAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get devicePlatform => $composableBuilder(
+    column: $table.devicePlatform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originDevice => $composableBuilder(
+    column: $table.originDevice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sheetState => $composableBuilder(
+    column: $table.sheetState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sheetError => $composableBuilder(
+    column: $table.sheetError,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1821,6 +2636,41 @@ class $$EntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get endAt => $composableBuilder(
+    column: $table.endAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get devicePlatform => $composableBuilder(
+    column: $table.devicePlatform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originDevice => $composableBuilder(
+    column: $table.originDevice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sheetState => $composableBuilder(
+    column: $table.sheetState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sheetError => $composableBuilder(
+    column: $table.sheetError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get tzName => $composableBuilder(
     column: $table.tzName,
     builder: (column) => ColumnOrderings(column),
@@ -1879,6 +2729,37 @@ class $$EntriesTableAnnotationComposer
 
   GeneratedColumn<int> get startAt =>
       $composableBuilder(column: $table.startAt, builder: (column) => column);
+
+  GeneratedColumn<int> get endAt =>
+      $composableBuilder(column: $table.endAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get devicePlatform => $composableBuilder(
+    column: $table.devicePlatform,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originDevice => $composableBuilder(
+    column: $table.originDevice,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sheetState => $composableBuilder(
+    column: $table.sheetState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get sheetError => $composableBuilder(
+    column: $table.sheetError,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get tzName =>
       $composableBuilder(column: $table.tzName, builder: (column) => column);
@@ -1947,6 +2828,13 @@ class $$EntriesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> activityId = const Value.absent(),
                 Value<int> startAt = const Value.absent(),
+                Value<int?> endAt = const Value.absent(),
+                Value<String?> deviceName = const Value.absent(),
+                Value<String?> devicePlatform = const Value.absent(),
+                Value<String?> originDevice = const Value.absent(),
+                Value<String> sheetState = const Value.absent(),
+                Value<int?> syncedAt = const Value.absent(),
+                Value<String?> sheetError = const Value.absent(),
                 Value<String> tzName = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
@@ -1956,6 +2844,13 @@ class $$EntriesTableTableManager
                 id: id,
                 activityId: activityId,
                 startAt: startAt,
+                endAt: endAt,
+                deviceName: deviceName,
+                devicePlatform: devicePlatform,
+                originDevice: originDevice,
+                sheetState: sheetState,
+                syncedAt: syncedAt,
+                sheetError: sheetError,
                 tzName: tzName,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -1967,6 +2862,13 @@ class $$EntriesTableTableManager
                 required String id,
                 required String activityId,
                 required int startAt,
+                Value<int?> endAt = const Value.absent(),
+                Value<String?> deviceName = const Value.absent(),
+                Value<String?> devicePlatform = const Value.absent(),
+                Value<String?> originDevice = const Value.absent(),
+                Value<String> sheetState = const Value.absent(),
+                Value<int?> syncedAt = const Value.absent(),
+                Value<String?> sheetError = const Value.absent(),
                 required String tzName,
                 required int createdAt,
                 required int updatedAt,
@@ -1976,6 +2878,13 @@ class $$EntriesTableTableManager
                 id: id,
                 activityId: activityId,
                 startAt: startAt,
+                endAt: endAt,
+                deviceName: deviceName,
+                devicePlatform: devicePlatform,
+                originDevice: originDevice,
+                sheetState: sheetState,
+                syncedAt: syncedAt,
+                sheetError: sheetError,
                 tzName: tzName,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -2302,6 +3211,238 @@ typedef $$WorkSchedulesTableProcessedTableManager =
       WorkSchedule,
       PrefetchHooks Function()
     >;
+typedef $$SheetSettingsTableCreateCompanionBuilder =
+    SheetSettingsCompanion Function({
+      Value<int> id,
+      required String deviceId,
+      Value<String?> deviceLabel,
+      Value<String?> account,
+      Value<String?> spreadsheet,
+      Value<String?> error,
+    });
+typedef $$SheetSettingsTableUpdateCompanionBuilder =
+    SheetSettingsCompanion Function({
+      Value<int> id,
+      Value<String> deviceId,
+      Value<String?> deviceLabel,
+      Value<String?> account,
+      Value<String?> spreadsheet,
+      Value<String?> error,
+    });
+
+class $$SheetSettingsTableFilterComposer
+    extends Composer<_$WorklogDatabase, $SheetSettingsTable> {
+  $$SheetSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceLabel => $composableBuilder(
+    column: $table.deviceLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get account => $composableBuilder(
+    column: $table.account,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get spreadsheet => $composableBuilder(
+    column: $table.spreadsheet,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SheetSettingsTableOrderingComposer
+    extends Composer<_$WorklogDatabase, $SheetSettingsTable> {
+  $$SheetSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceLabel => $composableBuilder(
+    column: $table.deviceLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get account => $composableBuilder(
+    column: $table.account,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get spreadsheet => $composableBuilder(
+    column: $table.spreadsheet,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SheetSettingsTableAnnotationComposer
+    extends Composer<_$WorklogDatabase, $SheetSettingsTable> {
+  $$SheetSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceLabel => $composableBuilder(
+    column: $table.deviceLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get account =>
+      $composableBuilder(column: $table.account, builder: (column) => column);
+
+  GeneratedColumn<String> get spreadsheet => $composableBuilder(
+    column: $table.spreadsheet,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+}
+
+class $$SheetSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$WorklogDatabase,
+          $SheetSettingsTable,
+          SheetSetting,
+          $$SheetSettingsTableFilterComposer,
+          $$SheetSettingsTableOrderingComposer,
+          $$SheetSettingsTableAnnotationComposer,
+          $$SheetSettingsTableCreateCompanionBuilder,
+          $$SheetSettingsTableUpdateCompanionBuilder,
+          (
+            SheetSetting,
+            BaseReferences<
+              _$WorklogDatabase,
+              $SheetSettingsTable,
+              SheetSetting
+            >,
+          ),
+          SheetSetting,
+          PrefetchHooks Function()
+        > {
+  $$SheetSettingsTableTableManager(
+    _$WorklogDatabase db,
+    $SheetSettingsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SheetSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SheetSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SheetSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<String?> deviceLabel = const Value.absent(),
+                Value<String?> account = const Value.absent(),
+                Value<String?> spreadsheet = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+              }) => SheetSettingsCompanion(
+                id: id,
+                deviceId: deviceId,
+                deviceLabel: deviceLabel,
+                account: account,
+                spreadsheet: spreadsheet,
+                error: error,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String deviceId,
+                Value<String?> deviceLabel = const Value.absent(),
+                Value<String?> account = const Value.absent(),
+                Value<String?> spreadsheet = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+              }) => SheetSettingsCompanion.insert(
+                id: id,
+                deviceId: deviceId,
+                deviceLabel: deviceLabel,
+                account: account,
+                spreadsheet: spreadsheet,
+                error: error,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SheetSettingsTable, SheetSetting>(table),
+                  BaseReferences<
+                    _$WorklogDatabase,
+                    $SheetSettingsTable,
+                    SheetSetting
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SheetSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$WorklogDatabase,
+      $SheetSettingsTable,
+      SheetSetting,
+      $$SheetSettingsTableFilterComposer,
+      $$SheetSettingsTableOrderingComposer,
+      $$SheetSettingsTableAnnotationComposer,
+      $$SheetSettingsTableCreateCompanionBuilder,
+      $$SheetSettingsTableUpdateCompanionBuilder,
+      (
+        SheetSetting,
+        BaseReferences<_$WorklogDatabase, $SheetSettingsTable, SheetSetting>,
+      ),
+      SheetSetting,
+      PrefetchHooks Function()
+    >;
 
 class $WorklogDatabaseManager {
   final _$WorklogDatabase _db;
@@ -2312,4 +3453,6 @@ class $WorklogDatabaseManager {
       $$EntriesTableTableManager(_db, _db.entries);
   $$WorkSchedulesTableTableManager get workSchedules =>
       $$WorkSchedulesTableTableManager(_db, _db.workSchedules);
+  $$SheetSettingsTableTableManager get sheetSettings =>
+      $$SheetSettingsTableTableManager(_db, _db.sheetSettings);
 }

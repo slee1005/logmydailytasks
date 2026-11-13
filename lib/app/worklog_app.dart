@@ -11,6 +11,8 @@ import 'package:go_router/go_router.dart';
 import '../core/local_time.dart';
 import '../data/db/database.dart';
 import '../domain/scheduler/check_in_timer.dart';
+import '../features/sheets/sheet_page.dart';
+import '../integrations/sheets/sheet_sync.dart';
 import '../features/settings/schedule_page.dart';
 import '../features/checkin_popup/check_in_page.dart';
 import '../features/weekly/weekly_page.dart';
@@ -21,6 +23,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const WeeklyPage()),
+      GoRoute(path: '/settings/sheets', builder: (_, _) => const SheetPage()),
       GoRoute(path: '/schedule', builder: (_, _) => const SchedulePage()),
       GoRoute(path: '/check-in', builder: (_, _) => const CheckInPage()),
     ],
@@ -150,6 +153,7 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(sheetSyncProvider);
     const seed = Color(0xff24625d);
     return MaterialApp.router(
       scaffoldMessengerKey: _messenger,

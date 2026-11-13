@@ -8,7 +8,7 @@ This guide turns the PRD into something you can build from. Put it in the repo r
 
 ## 0. Ground rules (read first)
 
-1. **No server, no account.** Nothing in phase 1 may call a backend we own. The only network calls are Microsoft Graph, Google Calendar API, an ICS URL, and OAuth endpoints.
+1. **No server, no account.** Nothing in phase 1 may call a backend we own. The only network calls are Microsoft Graph, Google Calendar API, Google Sheets API (user's own sheet, opt-in), an ICS URL, and OAuth endpoints.
 2. **Local-first.** Every write goes to the local SQLite DB first. UI reads from the DB (reactive streams), never from in-memory caches that can drift.
 3. **Store UTC, display local.** All timestamps are stored as UTC epoch milliseconds plus `tz_name` (IANA, e.g. `America/Denver`) on each Entry.
 4. **Never store derived values.** Duration, amount, weekly totals and merged cells are computed at read time.
@@ -43,7 +43,9 @@ This guide turns the PRD into something you can build from. Put it in the repo r
 | ICS parsing | `icalendar_parser` or a small in-house parser | Only VEVENT, DTSTART/DTEND, SUMMARY, STATUS |
 | Time zones | `timezone` + `flutter_timezone` | IANA names |
 | Export | `excel` (xlsx), `csv`, `pdf` (phase 2) | Generated on device |
-| Files | `file_picker`, `share_plus` | Backup export/import |
+| Files | `file_picker`, `share_plus` | Backup export/import; mobile CSV share sheet (FR-6.11) |
+| Google Sheets | `googleapis` (Sheets v4) + `google_sign_in` (mobile/web) / loopback OAuth (desktop) | Scope `https://www.googleapis.com/auth/drive.file` only |
+| Device info | `device_info_plus` | Default device name and platform (FR-6.6) |
 | l10n | `flutter_localizations` + ARB files | `lib/l10n/app_ko.arb`, `app_en.arb` |
 | Tests | `flutter_test`, `mocktail`, `clock` | Fake clock for scheduler tests |
 
@@ -78,7 +80,7 @@ logmydailytask/
 │  │  ├─ weekly/                 # weekly grid builder + totals (FR-4)
 │  │  ├─ retention/              # purge job (FR-5.10–5.13)
 │  │  ├─ backup/                 # export/import + merge (FR-5.4, 5.13)
-│  │  └─ export/                 # xlsx/csv (FR-4.7)
+│  │  └─ export/                 # xlsx/csv (FR-4.7), mobile CSV share (FR-6.11)
 │  ├─ integrations/
 │  │  ├─ calendar/
 │  │  │  ├─ calendar_provider.dart   # interface
@@ -86,6 +88,7 @@ logmydailytask/
 │  │  │  ├─ google_provider.dart
 │  │  │  ├─ ics_provider.dart
 │  │  │  └─ admin_consent.dart       # FR-3 admin-consent help flow
+│  │  ├─ sheets/                 # Google Sheets sync (FR-6): auth check, upsert queue, pull
 │  │  └─ notifications/          # platform notification adapters
 │  ├─ platform/
 │  │  ├─ desktop/                # tray, popup window, hotkey, idle detection
@@ -193,10 +196,14 @@ CREATE TABLE entry (
   note TEXT,
   source TEXT NOT NULL,                    -- checkin | manual | calendar | timer
   status TEXT NOT NULL DEFAULT 'logged',   -- logged | missed | break
-  device_id TEXT NOT NULL,
+  device_id TEXT NOT NULL REFERENCES device(id),
+  sheet_sync_state TEXT NOT NULL DEFAULT 'none',  -- none | pending | synced | failed  (FR-6.7)
+  sheet_synced_at INTEGER,
+  sheet_error TEXT,
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
 );
 CREATE INDEX ix_entry_start ON entry(start_at);
+CREATE INDEX ix_entry_sheet_pending ON entry(sheet_sync_state) WHERE sheet_sync_state IN ('pending','failed');
 CREATE INDEX ix_entry_parent ON entry(parent_entry_id);
 -- Only one running timer at a time (FR-1.13):
 CREATE UNIQUE INDEX ux_entry_running ON entry(source) WHERE end_at IS NULL AND source = 'timer' AND deleted_at IS NULL;
@@ -208,6 +215,29 @@ CREATE TABLE saved_filter (                -- phase 2 (FR-4.13); create table in
   date_from INTEGER, date_to INTEGER,      -- fixed
   amount INTEGER, unit TEXT,               -- relative: unit = day|week|month|year
   category_id TEXT, project_id TEXT, source TEXT,
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
+);
+
+CREATE TABLE device (                    -- FR-6.6
+  id TEXT PRIMARY KEY,                     -- same value as profile.device_id for this device
+  name TEXT NOT NULL,                      -- user-editable, e.g. "John's MacBook"
+  platform TEXT NOT NULL,                  -- windows | macos | ios | android | web
+  is_this_device INTEGER NOT NULL DEFAULT 0,
+  last_seen_at INTEGER,
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
+);
+
+CREATE TABLE sheet_connection (           -- FR-6.1 to 6.10; single row
+  id TEXT PRIMARY KEY,
+  account_email TEXT NOT NULL,
+  spreadsheet_id TEXT NOT NULL,
+  sheet_name TEXT NOT NULL DEFAULT 'Log',
+  secure_storage_key TEXT NOT NULL,        -- token lives in secure storage, never here
+  enabled INTEGER NOT NULL DEFAULT 1,
+  import_others INTEGER NOT NULL DEFAULT 1,      -- FR-6.9
+  delete_rows_on_purge INTEGER NOT NULL DEFAULT 0,  -- FR-6.10 option
+  last_synced_at INTEGER,
+  last_error TEXT,                         -- e.g. auth_expired | permission_revoked | sheet_missing
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
 );
 
@@ -242,7 +272,7 @@ CREATE UNIQUE INDEX ux_cal_event ON calendar_event(connection_id, external_id);
 CREATE INDEX ix_cal_event_start ON calendar_event(start_at);
 ```
 
-Seed data on first run: categories 개발/Development, 회의/Meetings (`is_meeting = 1`), 지원/Support, 문서/Docs, 행정/Admin; one `settings` row; one `profile` row.
+Seed data on first run: this device's `device` row (name from `device_info_plus`, editable later), categories 개발/Development, 회의/Meetings (`is_meeting = 1`), 지원/Support, 문서/Docs, 행정/Admin; one `settings` row; one `profile` row.
 
 Migrations: schema version starts at 1. Every change is a numbered drift migration with a test in `test/data/migrations_test.dart` that opens a v(n-1) DB and migrates it.
 
@@ -291,7 +321,26 @@ else:
 3. Insert `entry` for the slot; copy `project_id` from the activity.
 4. Merge rule: do not merge rows in the DB. Consecutive identical activities are merged only in the weekly view (FR-4.2).
 
-Pick list order in the popup (FR-2.3): "Same as last" button, then pinned, then 5 most recent, then grouped by category. Autocomplete (FR-2.2) matches `title_norm` prefix first, then contains. Korean IME (FR-2.10): ignore Enter while `TextEditingValue.composing` is non-empty.
+Pick list order in the popup (FR-2.3): "Same as last" button, then pinned, then 5 most recent, then grouped by category. Korean IME (FR-2.10): ignore Enter while `TextEditingValue.composing` is non-empty.
+
+### 4.3.1 Autocomplete from the last 7 days (FR-2.2)
+
+- **Source set:** when the popup/sheet opens, load once into memory the activities used in entries with `start_at >= now − 7 days` (status `logged`, not deleted), with `uses7d = COUNT(*)` and `lastUsed = MAX(start_at)`:
+
+```sql
+SELECT a.id, a.title, a.title_norm, a.category_id, a.project_id,
+       COUNT(e.id) AS uses7d, MAX(e.start_at) AS last_used
+FROM entry e JOIN activity a ON a.id = e.activity_id
+WHERE e.start_at >= :since AND e.deleted_at IS NULL AND e.status = 'logged' AND a.deleted_at IS NULL
+GROUP BY a.id;
+```
+
+  Also precompute `chosung` (Korean initial consonants, e.g. "사용자 매뉴얼" → "ㅅㅇㅈ ㅁㄴㅇ") per title. Include records pulled from other devices (FR-6.9).
+- **Trigger:** on every text change starting with the first character, including while the Korean IME is composing (use the composing text too, so "ㅁ" already suggests). No debounce; filtering is in memory.
+- **Ranking:** tier 1 prefix match on `title_norm` (or on any word start), tier 2 contains, tier 3 initial-consonant match when the query is all jamo consonants; within a tier sort by `uses7d` desc, then `last_used` desc. Show at most 6.
+- **Display:** title with the matched part bold, category color dot + category, project (if any). Picking fills title, category and project. Keyboard: ↑/↓ move, Enter/Tab accept (Enter while composing does nothing), Esc closes the list.
+- **No match:** show one row "Search older records" that queries all activities (same ranking, `use_count`/`last_used_at` from the activity table).
+- **Performance:** suggestions render within 50 ms of a keystroke (NFR). Unit-test the ranker as a pure function with a fixed clock: prefix vs contains order, initial-consonant match, 8-day-old activity excluded, older search fallback.
 
 ### 4.4 Weekly grid (`domain/weekly/`) — FR-4
 
@@ -348,6 +397,15 @@ Import merge rules:
 - Never import device-only settings (`notifications_enabled_on_device`) or calendar tokens. Calendar connections are re-authorized on the new device.
 - Run in one transaction; show a summary (added / updated / skipped).
 
+### 4.8 Mobile CSV export (FR-6.11, FR-6.12)
+
+- Screen: period (this week / last week / this month / custom) + filters (category, project, device) → "Export CSV" → `share_plus` share sheet.
+- Encoding: UTF-8 with BOM (`\uFEFF`) so Excel opens Korean correctly; CRLF line endings; RFC 4180 quoting.
+- Columns: `entry_id, date, start, end, minutes, category, project, description, note, source, status, device_name, device_platform, sheet_status, sheet_synced_at`.
+- `sheet_status` values match the UI: `synced` / `pending` / `failed` / `not_linked` (localized header labels, stable English values).
+- File name: `logmydailytask_YYYYMMDD-YYYYMMDD.csv`. Write to the app's temp directory, share, then delete.
+- Desktop and web keep FR-4.7 export (save dialog / download) with the same columns.
+
 ---
 
 ## 5. Calendar integration (`integrations/calendar/`) — FR-3
@@ -378,6 +436,34 @@ abstract class CalendarProvider {
 Filters (FR-3.4) are applied when converting events to meeting entries, not when storing events, so changing a filter takes effect without re-syncing.
 
 Online link detection: look for `teams.microsoft.com`, `meet.google.com`, `zoom.us` in location/body/online meeting fields.
+
+### 5.1 Google Sheets sync (`integrations/sheets/`) — FR-6
+
+**Turning it on (sign-in check, FR-6.1):**
+1. Google sign-in with scope `drive.file` only (separate from the calendar consent so users can link one without the other; if both are used, request incrementally).
+2. Show the signed-in email and ask the user to confirm the account.
+3. Create the spreadsheet "LogMyDailyTask Log" (`spreadsheets.create`) with a `Log` tab and the header row, or let the user pick one this app created earlier (with `drive.file` the app can only see its own files; use the Drive file list filtered to spreadsheets).
+4. Write test: append and then clear a test row. Only when this succeeds, save `sheet_connection` and set `enabled = 1`.
+5. Mark all existing entries `pending` and start the first upload.
+
+**Upload (app → sheet), FR-6.4/6.5:**
+- Any insert/update/soft-delete of an entry sets `sheet_sync_state = 'pending'`.
+- Queue worker runs right after a save, every 5 minutes while the app runs, and on app start; batches up to 200 rows per run.
+- Row lookup: read column A (`Log!A:A`) once per run into a map `entry_id → row number`; existing rows → `values.batchUpdate`; new rows → one `values.append`. Never rely on stored row numbers (users can sort the sheet).
+- Soft-deleted entries: update the row and set column O (`deleted`) to `TRUE`; never delete rows from sync.
+- On success: `sheet_sync_state = 'synced'`, `sheet_synced_at = now`. On error: `failed` + `sheet_error`, retry with exponential backoff; on HTTP 429/5xx back off and keep `pending`.
+- Auth problems (401, revoked grant, 403 permission, 404 spreadsheet): stop the worker, set `sheet_connection.last_error`, show the "Sign in again" banner (FR-6.8). Nothing is lost; entries stay `pending`.
+
+**Pull (sheet → app), FR-6.9, optional per device:**
+- On each run, read rows whose device (column L/M) is not this device and whose `updated` (column N) is newer than the last pull.
+- Upsert them locally as read-only records (`device_id` = that device; create a `device` row for unknown devices). They appear in the weekly table with the device label and can be filtered by device.
+- Sheet edits made by hand are not imported for this device's own rows (one-way for own rows).
+
+**Retention interaction (FR-6.10):** the purge job removes local rows only. If `delete_rows_on_purge = 1`, it also deletes matching sheet rows (batched `deleteDimension`), after the same confirmation dialog.
+
+**Limits:** keep each sheet to one header row + data; if a year tab is needed later, split by `Log_YYYY`. Respect Sheets API per-minute quotas by batching and backing off.
+
+**Verification:** `drive.file` is classified by Google as a non-sensitive scope at the time of writing (confirm during OAuth app setup); `calendar.readonly` still needs verification.
 
 ---
 
@@ -411,6 +497,8 @@ Design canvas: https://claude.ai/artifact/SawoUzPGp8Z7UTDK6oS4H4 (weekly table, 
 | Settings | `/settings` | FR-5.3, 1.6, 1.7, 1.14 |
 | Calendar connect + admin consent help | `/settings/calendar` | FR-3.1, 3.2, PRD §6 |
 | Data & backup (export, import, delete old data, auto-cleanup) | `/settings/data` | FR-5.4, 5.6, 5.10–5.13 |
+| Google Sheets link (sign-in check, account, status, device name) | `/settings/sheets` | FR-6.1–6.8 |
+| CSV export (mobile share) | `/export` | FR-6.11, 6.12 |
 
 Design tokens (from the design canvas): primary `#2F5BEA`, meeting `#E8833A`, surface `#FFFFFF` / dark `#16181D`, text `#1B1D22`, radius 12 (cards) / 8 (cells), base spacing 8, font Inter (Latin) + Noto Sans KR (Korean), both bundled with the app (no runtime font downloads). Category colors come from a fixed palette of 10 accessible colors (contrast ≥ 4.5:1 for labels).
 
@@ -432,6 +520,7 @@ Each milestone ends with tests passing and a short demo on at least one desktop 
 | M7 | Calendar: Graph, Google, ICS, filters, meeting pause, long-meeting option, admin-consent help | Integration tests with recorded HTTP fixtures; manual test with a real M365 and Google account |
 | M8 | Export xlsx/CSV; backup export/import with merge + purged_before | Round-trip test: export → wipe → import → identical data |
 | M9 | Data cleanup: manual 3/6 months/custom, auto-cleanup, preview, VACUUM | Tests: rows before cutoff gone, after cutoff kept, settings.purged_before set, import skips old rows |
+| M9.5 | Google Sheets sync (sign-in check, create/link sheet, upsert queue, status badges, device labels, pull other devices) + mobile CSV share | Tests with a fake Sheets client: upsert by entry_id after the sheet is re-sorted, soft-delete marks row, auth error → pending + banner; CSV has BOM, device and sheet_status columns |
 | M10 | Polish: dark mode, accessibility pass, store assets, privacy policy page (static) | Accessibility checklist; app store submission builds |
 
 ---
@@ -442,7 +531,7 @@ Each milestone ends with tests passing and a short demo on at least one desktop 
 - **Repository:** in-memory drift DB (`NativeDatabase.memory()`).
 - **Migrations:** one test per schema version step.
 - **Widget/golden:** popup, weekly table (light/dark, ko/en).
-- **Integration:** calendar providers against recorded JSON fixtures; never hit real APIs in CI.
+- **Integration:** calendar providers and the Sheets client against recorded JSON fixtures; never hit real APIs in CI.
 - **Manual platform checklist:** notification permission flows, reboot rescheduling (Android), 64-notification window (iOS), tab-closed behavior (web), hotkey conflicts (desktop).
 
 Key fixture: one week with a 30-min interval, a 60-min team meeting Monday 10:00, a 2-hour workshop Thursday 13:00 with FR-1.14 on, two missed slots Wednesday, a running timer Friday.
@@ -453,6 +542,7 @@ Key fixture: one week with a 30-min interval, a 60-min team meeting Monday 10:00
 
 - Dart: `dart format`, `flutter_lints` (strict), no `print` (use a logger that never logs entry text or tokens).
 - IDs: UUID v7. Times: `int` UTC ms in the DB; `TZDateTime` in the domain layer.
+- Date display: one helper `formatDate(d)` = `DateFormat('EEE, M/d/yyyy', 'en_US')` → `Fri, 11/13/2026`, used in both the Korean and English UI (week headers, day view, filters, cleanup preview). Ranges: `Mon, 11/9/2026 – Fri, 11/13/2026`. Times follow the device's 12/24-hour setting. Machine formats (sheet column B, CSV, backup) stay `yyyy-MM-dd`.
 - Errors: domain functions return `Result<T, AppError>`; UI shows localized messages.
 - Privacy: never log activity titles, notes, meeting titles, emails or tokens. Analytics are opt-in and count events only.
 - Commits: Conventional Commits (`feat(scheduler): …`), referencing FR IDs in the body.
@@ -474,6 +564,6 @@ Use one milestone at a time and point at this file:
 ## 12. Open items for the coding phase
 
 - Confirm exact Microsoft identity error codes that mean "admin approval required" on test tenants.
-- Register app IDs: Azure AD (multi-tenant, public client, redirect URIs per platform) and Google Cloud OAuth client (verification for `calendar.readonly`).
+- Register app IDs: Azure AD (multi-tenant, public client, redirect URIs per platform) and Google Cloud OAuth client (verification for `calendar.readonly`; enable the Sheets and Drive APIs for `drive.file`).
 - Choose the final category color palette and verify contrast in both themes.
 - Confirm "LogMyDailyTask" trademark, store names and domain before submitting builds.

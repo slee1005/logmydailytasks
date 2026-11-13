@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/local_time.dart';
+import '../../core/work_time.dart';
 import '../../data/db/database.dart';
+import '../export/csv_export_button.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 class WeeklyPage extends ConsumerStatefulWidget {
@@ -22,13 +24,16 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final dates = MaterialLocalizations.of(context);
+    String formatTime(DateTime instant) => dates.formatTimeOfDay(
+      TimeOfDay.fromDateTime(instant),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
     final today = ref.watch(currentDateProvider)();
     final monday = dayAtOffset(today, 1 - today.weekday + _weekOffset * 7);
 
     final entries = ref.watch(weeklyEntriesProvider(monday));
-    final byDay = <DateTime, List<({DateTime at, String title})>>{};
-    for (final entry
-        in entries.value ?? const <({DateTime at, String title})>[]) {
+    final byDay = <DateTime, List<WeeklyActivity>>{};
+    for (final entry in entries.value ?? const <WeeklyActivity>[]) {
       (byDay[dayAtOffset(entry.at, 0)] ??= []).add(entry);
     }
     final dayCount = byDay.keys.any((day) => day.weekday >= DateTime.saturday)
@@ -39,6 +44,12 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
       appBar: AppBar(
         title: Text(strings.appName),
         actions: [
+          IconButton(
+            tooltip: strings.sheetTitle,
+            icon: const Icon(Icons.cloud_outlined),
+            onPressed: () => context.push('/settings/sheets'),
+          ),
+          CsvExportButton(monday: monday),
           IconButton(
             tooltip: strings.scheduleTitle,
             onPressed: () => context.push('/schedule'),
@@ -62,8 +73,8 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
                   const SizedBox(height: 16),
                   Text(
                     strings.weekRange(
-                      dates.formatMediumDate(monday),
-                      dates.formatMediumDate(dayAtOffset(monday, dayCount - 1)),
+                      formatWorkDate(monday),
+                      formatWorkDate(dayAtOffset(monday, dayCount - 1)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -92,8 +103,22 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      final saved = await context.push<bool>('/check-in');
-                      if (mounted && saved == true) _selectWeek(0);
+                      final saved = await context.push<DateTime>('/check-in');
+                      if (!mounted || saved == null) return;
+                      final local = saved.toLocal();
+                      final savedMonday = DateTime.utc(
+                        local.year,
+                        local.month,
+                        local.day - local.weekday + 1,
+                      );
+                      final currentMonday = DateTime.utc(
+                        today.year,
+                        today.month,
+                        today.day - today.weekday + 1,
+                      );
+                      _selectWeek(
+                        savedMonday.difference(currentMonday).inDays ~/ 7,
+                      );
                     },
                     icon: const Icon(Icons.edit_outlined),
                     label: Text(strings.openCheckIn),
@@ -109,7 +134,7 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
                           for (var day = 0; day < dayCount; day++) ...[
                             ListTile(
                               title: Text(
-                                dates.formatFullDate(dayAtOffset(monday, day)),
+                                formatWorkDate(dayAtOffset(monday, day)),
                               ),
                               subtitle:
                                   byDay.containsKey(dayAtOffset(monday, day))
@@ -121,14 +146,19 @@ class _WeeklyPageState extends ConsumerState<WeeklyPage> {
                               ListTile(
                                 dense: true,
                                 title: Text(entry.title),
+                                trailing: Text(switch (entry.sheetState) {
+                                  'synced' => strings.sheetSynced,
+                                  'pending' => strings.sheetPending,
+                                  'failed' => strings.sheetFailure,
+                                  _ => strings.sheetNotLinked,
+                                }),
                                 subtitle: Text(
-                                  dates.formatTimeOfDay(
-                                    TimeOfDay.fromDateTime(entry.at),
-                                    alwaysUse24HourFormat:
-                                        MediaQuery.alwaysUse24HourFormatOf(
-                                          context,
-                                        ),
-                                  ),
+                                  entry.end == null
+                                      ? '${formatTime(entry.at)} ${entry.device ?? ''}'
+                                      : '${formatWorkDate(inWorkZone(entry.at, entry.zone))} '
+                                            '${formatTime(inWorkZone(entry.at, entry.zone))} – '
+                                            '${formatWorkDate(inWorkZone(entry.end!, entry.zone))} '
+                                            '${formatTime(inWorkZone(entry.end!, entry.zone))} (${entry.zone}) ${entry.device ?? ''}',
                                 ),
                               ),
                           ],

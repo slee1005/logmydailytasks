@@ -33,10 +33,10 @@ void main() {
   ) async {
     final database = await launch(tester, const Locale('en'));
     expect(find.text('Weekly worklog'), findsOneWidget);
-    expect(find.textContaining('November 9, 2026'), findsOneWidget);
+    expect(find.textContaining('Mon, 11/9/2026 –'), findsOneWidget);
     await tester.tap(find.byTooltip('Next week'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('November 16, 2026'), findsOneWidget);
+    expect(find.textContaining('Mon, 11/16/2026 –'), findsOneWidget);
 
     final checkIn = find.text('Check in');
     await tester.tap(checkIn);
@@ -47,7 +47,7 @@ void main() {
 
     await tester.tap(find.text('Back to worklog'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('November 16, 2026'), findsOneWidget);
+    expect(find.textContaining('Mon, 11/16/2026 –'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await tester.runAsync(database.close);

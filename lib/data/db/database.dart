@@ -9,7 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../domain/activity_suggestions.dart';
+import '../../domain/worklog_csv.dart';
 import '../../domain/scheduler/check_in_schedule.dart';
+
+import '../../integrations/sheets/sheet_record.dart';
 
 part 'database.g.dart';
 
@@ -32,6 +36,13 @@ class Entries extends Table {
   TextColumn get id => text()();
   TextColumn get activityId => text().references(Activities, #id)();
   IntColumn get startAt => integer()();
+  IntColumn get endAt => integer().nullable()();
+  TextColumn get deviceName => text().nullable()();
+  TextColumn get devicePlatform => text().nullable()();
+  TextColumn get originDevice => text().nullable()();
+  TextColumn get sheetState => text().withDefault(const Constant('none'))();
+  IntColumn get syncedAt => integer().nullable()();
+  TextColumn get sheetError => text().nullable()();
   TextColumn get tzName => text()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
@@ -54,12 +65,24 @@ class WorkSchedules extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Activities, Entries, WorkSchedules])
+class SheetSettings extends Table {
+  IntColumn get id => integer()();
+  TextColumn get deviceId => text()();
+  TextColumn get deviceLabel => text().nullable()();
+  TextColumn get account => text().nullable()();
+  TextColumn get spreadsheet => text().nullable()();
+  TextColumn get error => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Activities, Entries, WorkSchedules, SheetSettings])
 class WorklogDatabase extends _$WorklogDatabase {
   WorklogDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,6 +95,18 @@ class WorklogDatabase extends _$WorklogDatabase {
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.createTable(workSchedules);
+      if (from < 3) {
+        await m.addColumn(entries, entries.endAt);
+        await m.addColumn(entries, entries.deviceName);
+        await m.addColumn(entries, entries.devicePlatform);
+      }
+      if (from < 4) {
+        await m.createTable(sheetSettings);
+        await m.addColumn(entries, entries.originDevice);
+        await m.addColumn(entries, entries.sheetState);
+        await m.addColumn(entries, entries.syncedAt);
+        await m.addColumn(entries, entries.sheetError);
+      }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
@@ -108,27 +143,226 @@ class WorklogDatabase extends _$WorklogDatabase {
     );
   }
 
+  SimpleSelectStatement<$SheetSettingsTable, SheetSetting> _sheetSetting() =>
+      select(sheetSettings)..where((row) => row.id.equals(1));
+
+  Stream<SheetSetting?> watchSheetSettings() =>
+      _sheetSetting().watchSingleOrNull();
+
+  Future<SheetSetting> ensureSheetSettings() async {
+    await into(sheetSettings).insert(
+      SheetSettingsCompanion.insert(
+        id: const Value(1),
+        deviceId: const Uuid().v7(),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    return _sheetSetting().getSingle();
+  }
+
+  Future<void> renameSheetDevice(String name) async {
+    await ensureSheetSettings();
+    await transaction(() async {
+      final setting = await _sheetSetting().getSingle();
+      await update(
+        sheetSettings,
+      ).write(SheetSettingsCompanion(deviceLabel: Value(name)));
+      await (update(entries)..where((row) => row.originDevice.isNull())).write(
+        EntriesCompanion(
+          deviceName: Value(name),
+          sheetState: Value(setting.spreadsheet == null ? 'none' : 'pending'),
+          syncedAt: const Value(null),
+          sheetError: const Value(null),
+          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
+        ),
+      );
+    });
+  }
+
+  Future<void> linkSheet(String account, String spreadsheet) async {
+    await ensureSheetSettings();
+    await transaction(() async {
+      final current = await _sheetSetting().getSingle();
+      await update(sheetSettings).write(
+        SheetSettingsCompanion(
+          account: Value(account),
+          spreadsheet: Value(spreadsheet),
+          error: const Value(null),
+        ),
+      );
+      if (current.spreadsheet != spreadsheet) {
+        await (delete(
+          entries,
+        )..where((row) => row.originDevice.isNotNull())).go();
+        await (update(
+          entries,
+        )..where((row) => row.originDevice.isNull())).write(
+          const EntriesCompanion(
+            sheetState: Value('pending'),
+            syncedAt: Value(null),
+            sheetError: Value(null),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> unlinkSheet() => transaction(() async {
+    await update(sheetSettings).write(
+      const SheetSettingsCompanion(
+        account: Value(null),
+        spreadsheet: Value(null),
+        error: Value(null),
+      ),
+    );
+    await (update(entries)..where((row) => row.originDevice.isNull())).write(
+      const EntriesCompanion(
+        sheetState: Value('none'),
+        syncedAt: Value(null),
+        sheetError: Value(null),
+      ),
+    );
+  });
+
+  Future<void> setSheetError(String? error) =>
+      update(sheetSettings).write(SheetSettingsCompanion(error: Value(error)));
+
+  Future<List<SheetRecord>> pendingSheetRecords(SheetSetting setting) async {
+    final rows =
+        await (select(entries).join([
+                innerJoin(
+                  activities,
+                  activities.id.equalsExp(entries.activityId),
+                ),
+              ])
+              ..where(
+                entries.originDevice.isNull() &
+                    entries.sheetState.isIn(['pending', 'failed']),
+              )
+              ..orderBy([OrderingTerm.asc(entries.updatedAt)])
+              ..limit(200))
+            .get();
+    return [
+      for (final row in rows)
+        (
+          id: row.readTable(entries).id,
+          title: row.readTable(activities).title,
+          start: row.readTable(entries).startAt,
+          end: row.readTable(entries).endAt,
+          zone: row.readTable(entries).tzName,
+          device:
+              setting.deviceLabel ?? row.readTable(entries).deviceName ?? '',
+          platform: row.readTable(entries).devicePlatform ?? '',
+          deviceId: setting.deviceId,
+          updated: row.readTable(entries).updatedAt,
+          deleted: row.readTable(entries).deletedAt != null,
+        ),
+    ];
+  }
+
+  Future<void> markSheetRecords(
+    List<SheetRecord> records, {
+    String? error,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await batch((batch) {
+      for (final record in records) {
+        batch.update(
+          entries,
+          EntriesCompanion(
+            sheetState: Value(error == null ? 'synced' : 'failed'),
+            syncedAt: Value(error == null ? now : null),
+            sheetError: Value(error),
+          ),
+          where: (row) =>
+              row.id.equals(record.id) & row.updatedAt.equals(record.updated),
+        );
+      }
+    });
+  }
+
+  Future<void> importSheetRecords(
+    List<SheetRecord> records,
+    String deviceId,
+  ) async {
+    await transaction(() async {
+      for (final record in records) {
+        if (record.deviceId == deviceId) continue;
+        final existing = await (select(
+          entries,
+        )..where((row) => row.id.equals(record.id))).getSingleOrNull();
+        if (existing != null &&
+            (existing.originDevice != record.deviceId ||
+                existing.updatedAt >= record.updated)) {
+          continue;
+        }
+        final titleNorm = record.title.trim().toLowerCase();
+        await into(activities).insert(
+          ActivitiesCompanion.insert(
+            id: const Uuid().v7(),
+            title: record.title,
+            titleNorm: titleNorm,
+            createdAt: record.updated,
+            updatedAt: record.updated,
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+        final activity =
+            await (select(activities)..where(
+                  (row) =>
+                      row.titleNorm.equals(titleNorm) & row.deletedAt.isNull(),
+                ))
+                .getSingle();
+        await into(entries).insertOnConflictUpdate(
+          EntriesCompanion.insert(
+            id: record.id,
+            activityId: activity.id,
+            startAt: record.start,
+            endAt: Value(record.end),
+            tzName: record.zone,
+            deviceName: Value(record.device),
+            devicePlatform: Value(record.platform),
+            originDevice: Value(record.deviceId),
+            sheetState: const Value('synced'),
+            syncedAt: Value(record.updated),
+            deletedAt: Value(record.deleted ? record.updated : null),
+            createdAt: record.updated,
+            updatedAt: record.updated,
+          ),
+        );
+      }
+    });
+  }
+
   Future<void> saveCheckIn({
     required String title,
     required DateTime at,
     required String tzName,
+    DateTime? end,
+    String? deviceName,
+    String? devicePlatform,
   }) async {
     final trimmed = title.trim();
     if (trimmed.isEmpty || trimmed.characters.length > 200) {
       throw ArgumentError('Invalid activity title length');
     }
+    if (end != null && !end.isAfter(at)) {
+      throw ArgumentError('Work end must follow its start');
+    }
     final timestamp = at.millisecondsSinceEpoch;
     final normalized = trimmed.toLowerCase();
+    final savedAt = DateTime.now().millisecondsSinceEpoch;
     const uuid = Uuid();
 
     await transaction(() async {
+      final settings = await _sheetSetting().getSingleOrNull();
       await into(activities).insert(
         ActivitiesCompanion.insert(
           id: uuid.v7(),
           title: trimmed,
           titleNorm: normalized,
-          createdAt: timestamp,
-          updatedAt: timestamp,
+          createdAt: savedAt,
+          updatedAt: savedAt,
         ),
         mode: InsertMode.insertOrIgnore,
       );
@@ -143,35 +377,98 @@ class WorklogDatabase extends _$WorklogDatabase {
           id: uuid.v7(),
           activityId: activity.id,
           startAt: timestamp,
+          endAt: Value(end?.millisecondsSinceEpoch),
+          deviceName: Value(settings?.deviceLabel ?? deviceName),
+          sheetState: Value(settings?.spreadsheet == null ? 'none' : 'pending'),
+          devicePlatform: Value(devicePlatform),
           tzName: tzName,
-          createdAt: timestamp,
-          updatedAt: timestamp,
+          createdAt: savedAt,
+          updatedAt: savedAt,
         ),
       );
     });
   }
 
-  Stream<List<({DateTime at, String title})>> watchWeek(DateTime monday) {
+  Future<List<ActivitySuggestion>> activitySuggestions({
+    required DateTime through,
+    bool recentOnly = true,
+  }) async {
+    final rows = await customSelect(
+      """SELECT a.title, COUNT(e.id) AS uses, MAX(e.start_at) AS latest
+      FROM activities a JOIN entries e ON e.activity_id = a.id
+      WHERE a.deleted_at IS NULL AND e.deleted_at IS NULL
+        AND (? = 0 OR e.start_at BETWEEN ? AND ?)
+      GROUP BY a.id""",
+      variables: [
+        Variable<int>(recentOnly ? 1 : 0),
+        Variable<int>(
+          through.subtract(const Duration(days: 7)).millisecondsSinceEpoch,
+        ),
+        Variable<int>(through.millisecondsSinceEpoch),
+      ],
+      readsFrom: {activities, entries},
+    ).get();
+    return [
+      for (final row in rows)
+        ActivitySuggestion(
+          row.read<String>('title'),
+          row.read<int>('uses'),
+          row.read<int>('latest'),
+        ),
+    ];
+  }
+
+  Stream<List<({DateTime at, String title})>> watchWeek(DateTime monday) =>
+      watchWeeklyActivities(
+        monday,
+      ).map((rows) => [for (final row in rows) (at: row.at, title: row.title)]);
+
+  Future<List<CsvWorkEntry>> exportEntries(DateTime start, DateTime end) async {
+    final rows = await _entriesInRange(start, end).get();
+    return [
+      for (final row in rows)
+        (
+          id: row.readTable(entries).id,
+          start: DateTime.fromMillisecondsSinceEpoch(
+            row.readTable(entries).startAt,
+            isUtc: true,
+          ),
+          end: switch (row.readTable(entries).endAt) {
+            final value? => DateTime.fromMillisecondsSinceEpoch(
+              value,
+              isUtc: true,
+            ),
+            null => null,
+          },
+          title: row.readTable(activities).title,
+          zone: row.readTable(entries).tzName,
+          device: row.readTable(entries).deviceName ?? '',
+          platform: row.readTable(entries).devicePlatform ?? '',
+          sheetState: row.readTable(entries).sheetState,
+          syncedAt: row.readTable(entries).syncedAt,
+        ),
+    ];
+  }
+
+  JoinedSelectStatement _entriesInRange(DateTime start, DateTime end) =>
+      select(entries).join([
+          innerJoin(activities, activities.id.equalsExp(entries.activityId)),
+        ])
+        ..where(
+          entries.startAt.isBiggerOrEqualValue(start.millisecondsSinceEpoch) &
+              entries.startAt.isSmallerThanValue(end.millisecondsSinceEpoch) &
+              entries.deletedAt.isNull() &
+              activities.deletedAt.isNull(),
+        )
+        ..orderBy([
+          OrderingTerm.asc(entries.startAt),
+          OrderingTerm.asc(entries.id),
+        ]);
+
+  Stream<List<WeeklyActivity>> watchWeeklyActivities(DateTime monday) {
     // Calendar arithmetic keeps the range correct when a DST change occurs.
     final nextMonday = DateTime(monday.year, monday.month, monday.day + 7);
-    final query =
-        select(entries).join([
-            innerJoin(activities, activities.id.equalsExp(entries.activityId)),
-          ])
-          ..where(
-            entries.startAt.isBiggerOrEqualValue(
-                  monday.millisecondsSinceEpoch,
-                ) &
-                entries.startAt.isSmallerThanValue(
-                  nextMonday.millisecondsSinceEpoch,
-                ) &
-                entries.deletedAt.isNull() &
-                activities.deletedAt.isNull(),
-          )
-          ..orderBy([
-            OrderingTerm.asc(entries.startAt),
-            OrderingTerm.asc(entries.id),
-          ]);
+    final query = _entriesInRange(monday, nextMonday);
 
     return query.watch().map(
       (rows) => [
@@ -181,6 +478,14 @@ class WorklogDatabase extends _$WorklogDatabase {
               row.readTable(entries).startAt,
             ),
             title: row.readTable(activities).title,
+            end: switch (row.readTable(entries).endAt) {
+              final value? => DateTime.fromMillisecondsSinceEpoch(value),
+              null => null,
+            },
+            zone: row.readTable(entries).tzName,
+            device: row.readTable(entries).deviceName,
+            sheetState: row.readTable(entries).sheetState,
+            sheetError: row.readTable(entries).sheetError,
           ),
       ],
     );
@@ -220,9 +525,20 @@ final databaseProvider = Provider<WorklogDatabase>((ref) {
   return database;
 });
 
+typedef WeeklyActivity = ({
+  DateTime at,
+  DateTime? end,
+  String title,
+  String zone,
+  String? device,
+  String sheetState,
+  String? sheetError,
+});
+
 final weeklyEntriesProvider = StreamProvider.autoDispose
-    .family<List<({DateTime at, String title})>, DateTime>(
-      (ref, monday) => ref.watch(databaseProvider).watchWeek(monday),
+    .family<List<WeeklyActivity>, DateTime>(
+      (ref, monday) =>
+          ref.watch(databaseProvider).watchWeeklyActivities(monday),
     );
 
 Future<String> _loadDatabaseKey() async {

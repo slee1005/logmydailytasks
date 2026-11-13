@@ -19,7 +19,7 @@ LogMyDailyTask is a free personal app for remote and work-from-home workers. At 
 
 - Starts as a personal app (no team or admin features)
 - Free, no ads, no sign-up
-- Data is stored locally only and never sent to a company server
+- Data is stored locally and never sent to a company server; optionally, records from all devices collect in the user's own Google Sheet
 
 ## 2. Target users and scenarios
 
@@ -79,7 +79,7 @@ Anything typed once is saved under a category, so next time the user only picks 
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | FR-2.1 | Free text (one line, up to 200 characters) + optional note | Must |
-| FR-2.2 | Autocomplete from existing items while typing | Must |
+| FR-2.2 | Autocomplete: from the first keystroke, suggest matching activities logged in the last 7 days. Order: prefix match → contains → Korean initial-consonant match (e.g. "ㅁㄴ" → "매뉴얼"); ties go to more uses in the last 7 days, then most recent. Each suggestion shows its category and project and fills them when picked. Pick with ↑↓, Enter, or Tab. If nothing matches within 7 days, offer "Search older records" across all activities | Must |
 | FR-2.3 | One "Same as last" button at the top of the popup + the 5 most recent items | Must |
 | FR-2.4 | Pick from a list grouped by category (e.g., Development / Meetings / Support / Docs / Admin) | Must |
 | FR-2.5 | When saving a new item, assign a category or create a new one | Must |
@@ -172,25 +172,58 @@ The app works right after install with no sign-up. Records, categories, and sett
 | FR-5.12 | Deletion covers Entries and CalendarEvents before the cutoff date. Categories, activities, and projects are kept (option: also remove items with no remaining records). Permanent delete followed by database compaction (VACUUM) to reclaim space | Must |
 | FR-5.13 | Store the cutoff date so that importing an older backup file does not bring back records before it (the import screen lets the user choose to include them) | Must |
 
+## 8-1. FR-6 — Google Sheets sync · mobile CSV export
+
+When the user turns it on, records from every device collect in one spreadsheet in their own Google account, so they can see everything in one place no matter which device logged it. There is still no app server: each device writes directly through the Google Sheets API.
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| FR-6.1 | Sign-in check before turning on "Save logs to Google Sheets": Google sign-in → show the account email → the link is enabled only after a sheet create/write test succeeds | Must |
+| FR-6.2 | Choose a sheet: the app creates a new spreadsheet "LogMyDailyTask Log" (default) or links to one this app created earlier. When every device uses the same account and sheet, all records are visible in one place | Must |
+| FR-6.3 | Least privilege: `drive.file` (only files the app created); no access to the user's other Drive files | Must |
+| FR-6.4 | One record = one sheet row. Rows are found by record ID and updated (upsert); deleted records are marked "Deleted" rather than removing the row | Must |
+| FR-6.5 | When to sync: try right after a record is saved + process the queue every 5 minutes while the app runs; when offline, wait and retry | Must |
+| FR-6.6 | Every record shows the device that saved it: device name (user-editable, e.g. "John's MacBook") and platform (Windows / macOS / iOS / Android / Web), in the app's weekly table and list and in the sheet | Must |
+| FR-6.7 | Every record shows its sheet status: Synced / Pending / Failed (reason) / Not linked. After an edit it stays "Pending" until synced again | Must |
+| FR-6.8 | On expired sign-in, revoked permission, or a deleted sheet: stop syncing and show a "Sign in again" banner. Records keep accumulating locally as Pending | Must |
+| FR-6.9 | Pull records other devices put in the sheet and show them in the app's weekly table too (filter by device) | Should |
+| FR-6.10 | Deleting old local data (FR-5.10) does not remove sheet rows (option: remove them from the sheet too) | Must |
+| FR-6.11 | Mobile CSV export: choose period and filters → build CSV → send through the share sheet to email, messengers, or the Files app. UTF-8 with BOM so Excel shows Korean correctly | Must |
+| FR-6.12 | Each CSV row includes the device name, sheet status (Synced / Pending / Failed / Not linked), and sync time | Must |
+
+**Sheet layout ("Log" tab, row 1 = headers)**
+
+| Column | Name | Example |
+| --- | --- | --- |
+| A | entry_id | 0193f2c1-… |
+| B–D | Date · start · end (local time) | 2026-11-12 · 10:30 · 12:00 |
+| E | Minutes | 90 |
+| F–H | Category · project · description | Development · Client A · API integration |
+| I–K | Note · source · status | — · checkin · logged |
+| L–M | Device name · platform | John's MacBook · macOS |
+| N–O | Updated (UTC) · deleted | 2026-11-12T18:02Z · FALSE |
+
+If the user reorders or sorts the sheet, rows are still found by the entry_id in column A. Edits made directly in the sheet do not flow back to the app (app → sheet one-way; FR-6.9 pulls only other devices' records), and the Settings screen says so.
+
 ## 9. Non-functional requirements
 
 The popup must be light and on time, and work records must be handled as sensitive data.
 
 | Area | Requirement |
 | --- | --- |
-| Performance | Popup shown within 1 second, desktop resident memory 150 MB or less, under 1% CPU when idle |
+| Performance | Popup shown within 1 second, autocomplete suggestions within 50 ms of a keystroke, desktop resident memory 150 MB or less, under 1% CPU when idle |
 | Accuracy | Notification timing within ±1 minute (±5 minutes allowed on mobile due to OS policy; web only while the tab is open) |
 | Offline | Everything except calendar queries works without a network |
 | Security | Local database encryption (desktop and mobile); OAuth tokens in the OS secure store (Keychain / Windows Credential Manager / Android Keystore); optional password encryption of backup files |
-| Privacy | No server or account; no screen capture, keystroke, or app-usage tracking; anonymous usage statistics only if the user opts in |
+| Privacy | No app server or account (Google Sheet sync uses the user's own account, only when turned on); no screen capture, keystroke, or app-usage tracking; anonymous usage statistics only if the user opts in |
 | Data ownership | Data lives only on the user's devices and can be exported or deleted at any time |
 | Accessibility | Popup fully operable by keyboard, screen reader labels, larger text support |
-| Languages | Korean and English UI (phase 1), localized date and time formats |
+| Languages | Korean and English UI (phase 1), dates shown in the short form Ddd, M/D/YYYY in both languages (e.g. Fri, 11/13/2026); sheet, CSV and backup keep YYYY-MM-DD for sorting |
 | Cost | Free app, so target zero server running cost (web uses static hosting only) |
 
 ## 10. Data model
 
-There are 9 core entities. Every record has `updated_at` and a soft delete (`deleted_at`) so backups can be merged.
+There are 11 core entities. Every record has `updated_at` and a soft delete (`deleted_at`) so backups can be merged.
 
 | Entity | Key fields | Description |
 | --- | --- | --- |
@@ -199,10 +232,12 @@ There are 9 core entities. Every record has `updated_at` and a soft delete (`del
 | Category | id, name, color, sort_order, archived | Work categories |
 | Project | id, name, client, color, status (active / awaiting_feedback / completed), hourly_rate (nullable), currency | Projects, clients, and rates (the reference project's Project + Rate merged for personal use) |
 | Activity | id, category_id, project_id (nullable), title, tags, last_used_at, use_count, pinned | Reusable work items |
-| Entry | id, activity_id (nullable), project_id (nullable), start_at (UTC), end_at (UTC, nullable = running timer), tz_name, note, source (checkin / manual / calendar / timer), status (logged / missed / break), parent_entry_id (nullable, check-in inside a long meeting), device_id | Time-slot records; duration and amount are computed, not stored |
+| Entry | id, activity_id (nullable), project_id (nullable), start_at (UTC), end_at (UTC, nullable = running timer), tz_name, note, source (checkin / manual / calendar / timer), status (logged / missed / break), parent_entry_id (nullable, check-in inside a long meeting), device_id, sheet_sync_state (none / pending / synced / failed), sheet_synced_at, sheet_error | Time-slot records; duration and amount are computed, not stored |
 | SavedFilter | id, name, kind (fixed / relative), date_from, date_to, amount, unit (day / week / month / year), category_id, project_id, source | Saved log filters (the reference project's Static / Relative filters) |
 | CalendarConnection | id, provider (outlook / google / ics), account_email, secure_storage_key, sync_cursor, filters | Calendar connection (the token itself lives in the OS secure store) |
 | CalendarEvent | id, connection_id, external_id, title, start_at, end_at, attendee_count, online_link_type, response_status | Imported meetings (linked to Entry) |
+| Device | id, name (user-editable), platform (windows / macos / ios / android / web), is_this_device, last_seen_at | Device that saved a record (including other devices pulled from the sheet) |
+| SheetConnection | id, account_email, spreadsheet_id, sheet_name, secure_storage_key, enabled, last_synced_at, last_error, import_others | Google Sheets link (token in the OS secure store) |
 
 A running timer is one Entry with an empty `end_at`; only one may run at a time. The amount is computed for display as `(end_at − start_at) × hourly_rate`. The weekly table groups Entries by time slot and is not stored separately.
 
@@ -223,7 +258,7 @@ One cross-platform codebase serves five platforms, and every record is stored in
                 │ Backup file export·import      │ Read-only
                 ▼                                ▼
    My files · my cloud folder          Microsoft Graph     Google Calendar API
-   (auto-merge comes in phase 2)       (Outlook events)    (Google events)
+   (auto-merge comes in phase 2)       (Outlook events)    (Calendar · Sheets)
 ```
 
 | Layer | Recommended | Alternatives | Why |
@@ -235,6 +270,7 @@ One cross-platform codebase serves five platforms, and every record is stored in
 | Notifications | OS local notifications, browser Notification API | — | No push server needed |
 | Export | xlsx · CSV · PDF generated in the app | — | Data never leaves the device |
 | Web hosting | Static hosting (e.g., Cloudflare Pages) | GitHub Pages | No server code, near-zero cost |
+| Log collection | Google Sheets API (values.append / batchUpdate), drive.file scope | — | Collects every device's records in the user's own sheet with no server |
 
 Phase 1 needs no API server such as Laravel. Phase 2 auto-sync can also stay serverless by using the user's own cloud folder.
 
@@ -282,7 +318,7 @@ The MVP goal is a free personal release on five platforms, including the web, co
 
 | Phase | Scope |
 | --- | --- |
-| MVP (phase 1) | Windows · macOS · iOS · Android · Web; FR-1 check-ins (custom interval, pause during meetings, companion timer); FR-2 entry, categories, projects (status, rate); FR-3 Outlook + Google + ICS read access with admin consent guidance; FR-4 weekly table + filters + amount column + Excel/CSV export; FR-5 local storage and backup; Korean/English UI |
+| MVP (phase 1) | Windows · macOS · iOS · Android · Web; FR-1 check-ins (custom interval, pause during meetings, companion timer); FR-2 entry, categories, projects (status, rate); FR-3 Outlook + Google + ICS read access with admin consent guidance; FR-4 weekly table + filters + amount column + Excel/CSV export; FR-5 local storage and backup; FR-6 Google Sheets sync and mobile CSV export; Korean/English UI |
 | Phase 2 | Automatic merge across devices via the user's cloud folder, auto-dismiss across devices, idle detection, PDF export, saved filters, post-meeting note popup |
 | Phase 3 | On-device category suggestions and weekly summaries, timesheet export templates |
 
@@ -311,6 +347,9 @@ With no server, the first three metrics are measured only through anonymous stat
 | App name | LogMyDailyTask (changed from LogMyWork) | Throughout |
 | Local database | SQLite with the same schema on every platform (drift); SQLCipher encryption on desktop and mobile, SQLite WASM on the web | Sections 3, 10, 11 |
 | Old data | Manual deletion of data older than 3 or 6 months + auto-cleanup option | FR-5.10–5.13 |
+| Date display format | On screen Ddd, M/D/YYYY (e.g. Mon, 11/9/2026); sheet and CSV YYYY-MM-DD | Section 9, Languages |
+| Autocomplete source | From the first keystroke, based on the last 7 days of records (incl. Korean initial-consonant search); offer older records when nothing matches | FR-2.2 |
+| Collecting logs across devices | Sync to the user's own Google Sheet (after a sign-in check); every record shows its device and sheet status; mobile shares CSV | Section 8-1 (FR-6) |
 
 **Remaining checks**
 
