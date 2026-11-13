@@ -1,0 +1,19 @@
+{
+  "@@locale": "ko",
+  "appName": "LogMyDailyTask",
+  "weeklyTitle": "주간 업무 기록",
+  "previousWeek": "이전 주",
+  "nextWeek": "다음 주",
+  "thisWeek": "이번 주",
+  "weekRange": "{start} ~ {end}",
+  "noEntries": "기록 없음",
+  "openCheckIn": "체크인",
+  "checkInTitle": "체크인",
+  "checkInPrompt": "어떤 일을 하셨나요?",
+  "activityLabel": "업무",
+  "backToWorklog": "주간 기록으로 돌아가기",
+  "saveCheckIn": "체크인 저장",
+  "saveError": "체크인을 저장하지 못했습니다. 다시 시도해 주세요.",
+  "emptyActivity": "업무를 입력해 주세요.",
+  "loadError": "업무 기록을 불러오지 못했습니다."
+}

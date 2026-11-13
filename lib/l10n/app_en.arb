@@ -1,0 +1,29 @@
+{
+  "@@locale": "en",
+  "appName": "LogMyDailyTask",
+  "weeklyTitle": "Weekly worklog",
+  "previousWeek": "Previous week",
+  "nextWeek": "Next week",
+  "thisWeek": "This week",
+  "weekRange": "{start} – {end}",
+  "@weekRange": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "noEntries": "No entries",
+  "openCheckIn": "Check in",
+  "checkInTitle": "Check-in",
+  "checkInPrompt": "What did you work on?",
+  "activityLabel": "Activity",
+  "backToWorklog": "Back to worklog",
+  "saveCheckIn": "Save check-in",
+  "saveError": "Could not save the check-in. Try again.",
+  "emptyActivity": "Enter an activity.",
+  "loadError": "Could not load the worklog."
+}
