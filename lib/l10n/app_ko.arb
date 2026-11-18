@@ -64,5 +64,13 @@
   "categoryLabel": "카테고리",
   "noCategory": "카테고리 없음",
   "addCategory": "카테고리 추가",
+  "manageCategories": "카테고리 관리",
+  "editCategory": "카테고리 이름 변경",
+  "saveCategory": "이름 저장",
+  "deleteCategory": "카테고리 삭제",
+  "deleteCategoryMessage": "이 기기의 체크인 목록에서 ‘{name}’ 카테고리를 삭제할까요? 기존 체크인의 카테고리는 유지됩니다.",
+  "categoryAlreadyExists": "같은 이름의 카테고리가 이미 있습니다.",
+  "categoryUpdateError": "카테고리를 변경하지 못했습니다. 다시 시도해 주세요.",
+  "noCategoriesToManage": "등록된 카테고리가 없습니다.",
   "calendarDay": "{date}, 기록 {count}건"
 }

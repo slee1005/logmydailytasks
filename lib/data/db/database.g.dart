@@ -2234,8 +2234,23 @@ class $WorkCategoriesTable extends WorkCategories
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _archivedMeta = const VerificationMeta(
+    'archived',
+  );
   @override
-  List<GeneratedColumn> get $columns => [normalized, name];
+  late final GeneratedColumn<bool> archived = GeneratedColumn<bool>(
+    'archived',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("archived" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [normalized, name, archived];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2264,6 +2279,12 @@ class $WorkCategoriesTable extends WorkCategories
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('archived')) {
+      context.handle(
+        _archivedMeta,
+        archived.isAcceptableOrUnknown(data['archived']!, _archivedMeta),
+      );
+    }
     return context;
   }
 
@@ -2281,6 +2302,10 @@ class $WorkCategoriesTable extends WorkCategories
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      archived: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}archived'],
+      )!,
     );
   }
 
@@ -2293,12 +2318,18 @@ class $WorkCategoriesTable extends WorkCategories
 class WorkCategory extends DataClass implements Insertable<WorkCategory> {
   final String normalized;
   final String name;
-  const WorkCategory({required this.normalized, required this.name});
+  final bool archived;
+  const WorkCategory({
+    required this.normalized,
+    required this.name,
+    required this.archived,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['normalized'] = Variable<String>(normalized);
     map['name'] = Variable<String>(name);
+    map['archived'] = Variable<bool>(archived);
     return map;
   }
 
@@ -2306,6 +2337,7 @@ class WorkCategory extends DataClass implements Insertable<WorkCategory> {
     return WorkCategoriesCompanion(
       normalized: Value(normalized),
       name: Value(name),
+      archived: Value(archived),
     );
   }
 
@@ -2317,6 +2349,7 @@ class WorkCategory extends DataClass implements Insertable<WorkCategory> {
     return WorkCategory(
       normalized: serializer.fromJson<String>(json['normalized']),
       name: serializer.fromJson<String>(json['name']),
+      archived: serializer.fromJson<bool>(json['archived']),
     );
   }
   @override
@@ -2325,19 +2358,23 @@ class WorkCategory extends DataClass implements Insertable<WorkCategory> {
     return <String, dynamic>{
       'normalized': serializer.toJson<String>(normalized),
       'name': serializer.toJson<String>(name),
+      'archived': serializer.toJson<bool>(archived),
     };
   }
 
-  WorkCategory copyWith({String? normalized, String? name}) => WorkCategory(
-    normalized: normalized ?? this.normalized,
-    name: name ?? this.name,
-  );
+  WorkCategory copyWith({String? normalized, String? name, bool? archived}) =>
+      WorkCategory(
+        normalized: normalized ?? this.normalized,
+        name: name ?? this.name,
+        archived: archived ?? this.archived,
+      );
   WorkCategory copyWithCompanion(WorkCategoriesCompanion data) {
     return WorkCategory(
       normalized: data.normalized.present
           ? data.normalized.value
           : this.normalized,
       name: data.name.present ? data.name.value : this.name,
+      archived: data.archived.present ? data.archived.value : this.archived,
     );
   }
 
@@ -2345,44 +2382,51 @@ class WorkCategory extends DataClass implements Insertable<WorkCategory> {
   String toString() {
     return (StringBuffer('WorkCategory(')
           ..write('normalized: $normalized, ')
-          ..write('name: $name')
+          ..write('name: $name, ')
+          ..write('archived: $archived')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(normalized, name);
+  int get hashCode => Object.hash(normalized, name, archived);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is WorkCategory &&
           other.normalized == this.normalized &&
-          other.name == this.name);
+          other.name == this.name &&
+          other.archived == this.archived);
 }
 
 class WorkCategoriesCompanion extends UpdateCompanion<WorkCategory> {
   final Value<String> normalized;
   final Value<String> name;
+  final Value<bool> archived;
   final Value<int> rowid;
   const WorkCategoriesCompanion({
     this.normalized = const Value.absent(),
     this.name = const Value.absent(),
+    this.archived = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WorkCategoriesCompanion.insert({
     required String normalized,
     required String name,
+    this.archived = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : normalized = Value(normalized),
        name = Value(name);
   static Insertable<WorkCategory> custom({
     Expression<String>? normalized,
     Expression<String>? name,
+    Expression<bool>? archived,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (normalized != null) 'normalized': normalized,
       if (name != null) 'name': name,
+      if (archived != null) 'archived': archived,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2390,11 +2434,13 @@ class WorkCategoriesCompanion extends UpdateCompanion<WorkCategory> {
   WorkCategoriesCompanion copyWith({
     Value<String>? normalized,
     Value<String>? name,
+    Value<bool>? archived,
     Value<int>? rowid,
   }) {
     return WorkCategoriesCompanion(
       normalized: normalized ?? this.normalized,
       name: name ?? this.name,
+      archived: archived ?? this.archived,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2408,6 +2454,9 @@ class WorkCategoriesCompanion extends UpdateCompanion<WorkCategory> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (archived.present) {
+      map['archived'] = Variable<bool>(archived.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2419,6 +2468,7 @@ class WorkCategoriesCompanion extends UpdateCompanion<WorkCategory> {
     return (StringBuffer('WorkCategoriesCompanion(')
           ..write('normalized: $normalized, ')
           ..write('name: $name, ')
+          ..write('archived: $archived, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3798,12 +3848,14 @@ typedef $$WorkCategoriesTableCreateCompanionBuilder =
     WorkCategoriesCompanion Function({
       required String normalized,
       required String name,
+      Value<bool> archived,
       Value<int> rowid,
     });
 typedef $$WorkCategoriesTableUpdateCompanionBuilder =
     WorkCategoriesCompanion Function({
       Value<String> normalized,
       Value<String> name,
+      Value<bool> archived,
       Value<int> rowid,
     });
 
@@ -3823,6 +3875,11 @@ class $$WorkCategoriesTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get archived => $composableBuilder(
+    column: $table.archived,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3845,6 +3902,11 @@ class $$WorkCategoriesTableOrderingComposer
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get archived => $composableBuilder(
+    column: $table.archived,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkCategoriesTableAnnotationComposer
@@ -3863,6 +3925,9 @@ class $$WorkCategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<bool> get archived =>
+      $composableBuilder(column: $table.archived, builder: (column) => column);
 }
 
 class $$WorkCategoriesTableTableManager
@@ -3904,20 +3969,24 @@ class $$WorkCategoriesTableTableManager
               ({
                 Value<String> normalized = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkCategoriesCompanion(
                 normalized: normalized,
                 name: name,
+                archived: archived,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String normalized,
                 required String name,
+                Value<bool> archived = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkCategoriesCompanion.insert(
                 normalized: normalized,
                 name: name,
+                archived: archived,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

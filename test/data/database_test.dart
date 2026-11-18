@@ -6,6 +6,87 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logmydailytask/data/db/database.dart';
 
 void main() {
+  test('updates the category list and preserves old check-ins', () async {
+    final database = WorklogDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.addCategory('Docs');
+    await database.addCategory('Meetings');
+    final at = DateTime.utc(2026, 11, 13);
+    await database.saveCheckIn(
+      title: 'Local docs',
+      at: at,
+      tzName: 'Etc/UTC',
+      category: 'Docs',
+    );
+
+    expect(await database.renameCategory('Docs', ' meetings '), isNull);
+    expect(await database.watchCategories().first, ['Docs', 'Meetings']);
+    expect(await database.renameCategory('Docs', 'DOCS'), 'DOCS');
+    expect(await database.renameCategory('DOCS', ' Writing '), 'Writing');
+    await database.deleteCategory('Meetings');
+    expect(await database.watchCategories().first, ['Writing']);
+
+    await database.importSheetRecords([
+      for (final category in ['Docs', 'Meetings', 'Support'])
+        (
+          id: category,
+          title: 'Imported $category',
+          note: null,
+          category: category,
+          start: at.millisecondsSinceEpoch,
+          end: null,
+          zone: 'Etc/UTC',
+          device: 'Other device',
+          platform: 'macOS',
+          deviceId: 'other',
+          updated: at.millisecondsSinceEpoch,
+          deleted: false,
+        ),
+    ], 'local');
+    expect(await database.watchCategories().first, ['Support', 'Writing']);
+    final entries = await database.select(database.entries).get();
+    expect(
+      entries.map((entry) => entry.category),
+      unorderedEquals(['Docs', 'Docs', 'Meetings', 'Support']),
+    );
+
+    expect(await database.addCategory('meetings'), 'meetings');
+    expect(await database.watchCategories().first, [
+      'meetings',
+      'Support',
+      'Writing',
+    ]);
+  });
+
+  test('preserves the category list when upgrading from version 5', () async {
+    final directory = await Directory.systemTemp.createTemp('category-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/worklog.sqlite');
+    final original = WorklogDatabase(NativeDatabase(file));
+    try {
+      await original.addCategory('Docs');
+      await original.customStatement(
+        'ALTER TABLE work_categories DROP COLUMN archived',
+      );
+      await original.customStatement('PRAGMA user_version = 5');
+    } finally {
+      await original.close();
+    }
+
+    final migrated = WorklogDatabase(NativeDatabase(file));
+    try {
+      expect(await migrated.watchCategories().first, ['Docs']);
+      await migrated.deleteCategory('Docs');
+      expect(await migrated.watchCategories().first, isEmpty);
+    } finally {
+      await migrated.close();
+    }
+
+    final reopened = WorklogDatabase(NativeDatabase(file));
+    addTearDown(reopened.close);
+    expect(await reopened.watchCategories().first, isEmpty);
+  });
+
   test(
     'streams saved records and reads them after reopening the database',
     () async {

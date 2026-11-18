@@ -82,6 +82,7 @@ class SheetSettings extends Table {
 class WorkCategories extends Table {
   TextColumn get normalized => text()();
   TextColumn get name => text()();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {normalized};
@@ -94,7 +95,7 @@ class WorklogDatabase extends _$WorklogDatabase {
   WorklogDatabase(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -123,6 +124,8 @@ class WorklogDatabase extends _$WorklogDatabase {
         await m.addColumn(entries, entries.note);
         await m.addColumn(entries, entries.category);
         await m.createTable(workCategories);
+      } else if (from < 6) {
+        await m.addColumn(workCategories, workCategories.archived);
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
@@ -336,7 +339,14 @@ class WorklogDatabase extends _$WorklogDatabase {
         if (category != null &&
             category.trim().isNotEmpty &&
             category.trim().characters.length <= 80) {
-          await addCategory(category);
+          final name = category.trim();
+          await into(workCategories).insert(
+            WorkCategoriesCompanion.insert(
+              normalized: name.toLowerCase(),
+              name: name,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
         }
         await into(entries).insertOnConflictUpdate(
           EntriesCompanion.insert(
@@ -361,23 +371,63 @@ class WorklogDatabase extends _$WorklogDatabase {
     });
   }
 
-  Future<String> addCategory(String name) async {
+  String _categoryName(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty || trimmed.characters.length > 80) {
       throw ArgumentError('Invalid category name');
     }
-    final normalized = trimmed.toLowerCase();
-    await into(workCategories).insert(
-      WorkCategoriesCompanion.insert(normalized: normalized, name: trimmed),
-      mode: InsertMode.insertOrIgnore,
-    );
-    return (await (select(
-      workCategories,
-    )..where((row) => row.normalized.equals(normalized))).getSingle()).name;
+    return trimmed;
   }
+
+  Future<WorkCategory?> _findCategory(String normalized) => (select(
+    workCategories,
+  )..where((row) => row.normalized.equals(normalized))).getSingleOrNull();
+
+  Future<void> _storeCategory(String name) =>
+      into(workCategories).insertOnConflictUpdate(
+        WorkCategoriesCompanion.insert(
+          normalized: name.toLowerCase(),
+          name: name,
+          archived: const Value(false),
+        ),
+      );
+
+  Future<String> addCategory(String name) => transaction(() async {
+    final trimmed = _categoryName(name);
+    final existing = await _findCategory(trimmed.toLowerCase());
+    if (existing != null && !existing.archived) return existing.name;
+    await _storeCategory(trimmed);
+    return trimmed;
+  });
+
+  /// Returns null when another selectable category already has the new name.
+  Future<String?> renameCategory(String current, String name) =>
+      transaction(() async {
+        final trimmed = _categoryName(name);
+        final currentKey = current.trim().toLowerCase();
+        final newKey = trimmed.toLowerCase();
+        final source = await _findCategory(currentKey);
+        if (source == null || source.archived) {
+          throw StateError('Category is no longer available');
+        }
+        if (currentKey != newKey) {
+          final destination = await _findCategory(newKey);
+          if (destination != null && !destination.archived) return null;
+          await deleteCategory(current);
+        }
+        await _storeCategory(trimmed);
+        return trimmed;
+      });
+
+  // Keep the key so older Google Sheets records cannot restore this category.
+  Future<void> deleteCategory(String name) =>
+      (update(workCategories)
+            ..where((row) => row.normalized.equals(name.trim().toLowerCase())))
+          .write(const WorkCategoriesCompanion(archived: Value(true)));
 
   Stream<List<String>> watchCategories() =>
       (select(workCategories)
+            ..where((row) => row.archived.equals(false))
             ..orderBy([(row) => OrderingTerm.asc(row.normalized)]))
           .watch()
           .map((rows) => rows.map((row) => row.name).toList());

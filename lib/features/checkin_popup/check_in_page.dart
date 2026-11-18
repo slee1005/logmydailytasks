@@ -28,44 +28,170 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
   final _note = TextEditingController();
   String? _category;
 
-  Future<void> _addCategory() async {
+  Future<void> _editCategory({String? current}) async {
+    final database = ref.read(databaseProvider);
     final strings = AppLocalizations.of(context)!;
-    var name = '';
+    final editing = current != null;
+    var name = current ?? '';
+    var saving = false;
+    String? error;
     final selected = await showDialog<String>(
       context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> save() async {
+            if (saving || name.isEmpty) return;
+            setDialogState(() => saving = true);
+            try {
+              final category = editing
+                  ? await database.renameCategory(current, name)
+                  : await database.addCategory(name);
+              if (!context.mounted) return;
+              if (category != null) {
+                Navigator.pop(context, category);
+                return;
+              }
+              error = strings.categoryAlreadyExists;
+            } catch (_) {
+              if (!context.mounted) return;
+              error = strings.categoryUpdateError;
+            }
+            setDialogState(() => saving = false);
+          }
+
+          return AlertDialog(
+            title: Text(editing ? strings.editCategory : strings.addCategory),
+            content: TextFormField(
+              initialValue: current,
+              autofocus: true,
+              readOnly: saving,
+              maxLength: 80,
+              decoration: InputDecoration(
+                labelText: strings.categoryLabel,
+                errorText: error,
+              ),
+              onChanged: (value) => setDialogState(() {
+                name = value.trim();
+                error = null;
+              }),
+              onFieldSubmitted: (_) => save(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.pop(context),
+                child: Text(
+                  MaterialLocalizations.of(context).cancelButtonLabel,
+                ),
+              ),
+              FilledButton(
+                onPressed: saving || name.isEmpty ? null : save,
+                child: Text(
+                  editing ? strings.saveCategory : strings.addCategory,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (!mounted || selected == null) return;
+    if (!editing || _category == current) {
+      setState(() => _category = selected);
+    }
+  }
+
+  Future<void> _deleteCategory(String category) async {
+    final strings = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
       builder: (context) => AlertDialog(
-        title: Text(strings.addCategory),
-        content: TextField(
-          autofocus: true,
-          maxLength: 80,
-          decoration: InputDecoration(labelText: strings.categoryLabel),
-          onChanged: (value) => name = value.trim(),
-          onSubmitted: (_) => Navigator.pop(context, name),
-        ),
+        title: Text(strings.deleteCategory),
+        content: Text(strings.deleteCategoryMessage(category)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, name),
-            child: Text(strings.addCategory),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(strings.deleteCategory),
           ),
         ],
       ),
     );
-    if (!mounted || selected == null || selected.isEmpty) return;
+    if (!mounted || confirmed != true) return;
     try {
-      final category = await ref.read(databaseProvider).addCategory(selected);
-      if (mounted) setState(() => _category = category);
+      await ref.read(databaseProvider).deleteCategory(category);
+      if (mounted && _category == category) setState(() => _category = null);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(strings.saveError)));
+        ).showSnackBar(SnackBar(content: Text(strings.categoryUpdateError)));
       }
     }
   }
+
+  Future<void> _manageCategories() => showDialog<void>(
+    context: context,
+    builder: (context) {
+      final strings = AppLocalizations.of(context)!;
+      return AlertDialog(
+        title: Text(strings.manageCategories),
+        scrollable: true,
+        content: SizedBox(
+          width: 360,
+          child: Consumer(
+            builder: (context, ref, _) => ref
+                .watch(_categories)
+                .when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, _) => Text(strings.categoryUpdateError),
+                  data: (categories) => categories.isEmpty
+                      ? Text(strings.noCategoriesToManage)
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final category in categories)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  category,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      tooltip: strings.editCategory,
+                                      onPressed: () =>
+                                          _editCategory(current: category),
+                                      icon: const Icon(Icons.edit_outlined),
+                                    ),
+                                    IconButton(
+                                      tooltip: strings.deleteCategory,
+                                      onPressed: () =>
+                                          _deleteCategory(category),
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(MaterialLocalizations.of(context).closeButtonLabel),
+          ),
+        ],
+      );
+    },
+  );
 
   List<ActivitySuggestion> _activities = [];
   bool _older = false;
@@ -376,9 +502,14 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
                         ),
                       ),
                       IconButton(
-                        onPressed: _saving ? null : _addCategory,
+                        onPressed: _saving ? null : () => _editCategory(),
                         tooltip: strings.addCategory,
                         icon: const Icon(Icons.add),
+                      ),
+                      IconButton(
+                        onPressed: _saving ? null : _manageCategories,
+                        tooltip: strings.manageCategories,
+                        icon: const Icon(Icons.edit_outlined),
                       ),
                     ],
                   ),

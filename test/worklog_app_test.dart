@@ -7,13 +7,20 @@ import 'package:logmydailytask/core/local_time.dart';
 import 'package:logmydailytask/data/db/database.dart';
 
 void main() {
-  Future<WorklogDatabase> launch(WidgetTester tester, Locale locale) async {
+  Future<WorklogDatabase> launch(
+    WidgetTester tester,
+    Locale locale, {
+    Future<void> Function(WorklogDatabase)? seed,
+  }) async {
     tester.binding.platformDispatcher.localesTestValue = [locale];
     addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
     final database = WorklogDatabase(NativeDatabase.memory());
     await tester.runAsync(() async {
       await database.customSelect('SELECT 1').get();
     });
+    final seeded = seed?.call(database);
+    await tester.pump();
+    await seeded;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -53,6 +60,78 @@ void main() {
     await tester.runAsync(database.close);
   });
 
+  testWidgets('Renames and deletes a selected category from check-in', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final database = await launch(
+      tester,
+      const Locale('en'),
+      seed: (database) async {
+        await database.addCategory('Docs');
+        await database.addCategory('Meetings');
+      },
+    );
+    await tester.tap(find.text('Check in'));
+    await tester.pumpAndSettle();
+
+    final dropdown = find.byType(DropdownButton<String>);
+    await tester.ensureVisible(dropdown);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Docs').hitTestable());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Manage categories'));
+    await tester.pumpAndSettle();
+    Finder actionFor(String category, String tooltip) => find.descendant(
+      of: find.widgetWithText(ListTile, category),
+      matching: find.byTooltip(tooltip),
+    );
+    await tester.tap(actionFor('Docs', 'Rename category'));
+    await tester.pumpAndSettle();
+    final editor = find.byType(TextFormField);
+    await tester.enterText(editor, 'Meetings');
+    await tester.tap(find.text('Save name'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('A category with this name already exists.'),
+      findsOneWidget,
+    );
+    await tester.enterText(editor, 'Writing');
+    await tester.tap(find.text('Save name'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DropdownButton<String>>(dropdown).value, 'Writing');
+
+    await tester.tap(actionFor('Writing', 'Delete category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(actionFor('Writing', 'Delete category'), findsOneWidget);
+    await tester.tap(actionFor('Writing', 'Delete category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete category'));
+    await tester.pumpAndSettle();
+    expect(actionFor('Writing', 'Delete category'), findsNothing);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DropdownButton<String>>(dropdown).value, '');
+    expect(
+      tester
+          .widget<DropdownButton<String>>(dropdown)
+          .items
+          ?.map((item) => item.value),
+      ['', 'Meetings'],
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await tester.runAsync(database.close);
+  });
+
   testWidgets('Saves a Korean check-in and shows it on the worklog', (
     tester,
   ) async {
@@ -76,6 +155,7 @@ void main() {
       find.descendant(of: dialog, matching: find.byType(TextField)),
       '보고서',
     );
+    await tester.pump();
     await tester.tap(
       find.descendant(of: dialog, matching: find.text('카테고리 추가')).last,
     );

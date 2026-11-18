@@ -83,6 +83,15 @@
   "categoryLabel": "Category",
   "noCategory": "No category",
   "addCategory": "Add category",
+  "manageCategories": "Manage categories",
+  "editCategory": "Rename category",
+  "saveCategory": "Save name",
+  "deleteCategory": "Delete category",
+  "deleteCategoryMessage": "Remove “{name}” from future check-ins on this device? Existing check-ins keep their category.",
+  "categoryAlreadyExists": "A category with this name already exists.",
+  "categoryUpdateError": "Could not update categories. Try again.",
+  "noCategoriesToManage": "No categories yet.",
+  "@deleteCategoryMessage": {"placeholders": {"name": {"type": "String"}}},
   "calendarDay": "{date}, {count} logs",
   "@calendarDay": {
     "placeholders": {
