@@ -10,11 +10,24 @@ if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$version" != "$declared_version"
   exit 1
 fi
 
-flutter build macos --release --no-pub --dart-define="WORKLOG_RELEASE_VERSION=$version"
-app="build/macos/Build/Products/Release/logmydailytask.app"
-codesign --verify --deep --strict "$app"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
+cat > "$stage/StandaloneRelease.xcconfig" <<'EOF'
+WORKLOG_RELEASE_ENTITLEMENTS = $(PROJECT_DIR)/Runner/StandaloneRelease.entitlements
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM =
+PROVISIONING_PROFILE_SPECIFIER =
+EOF
+# Public installers use local signing and the file-based macOS Keychain.
+# Store/TestFlight builds retain their provisioned app-specific Keychain group.
+XCODE_XCCONFIG_FILE="$stage/StandaloneRelease.xcconfig" \
+  flutter build macos --release --no-pub \
+    --dart-define="WORKLOG_RELEASE_VERSION=$version" \
+    --dart-define=WORKLOG_MAC_FILE_KEYCHAIN=true
+app="build/macos/Build/Products/Release/logmydailytask.app"
+codesign --verify --deep --strict "$app"
+rm "$stage/StandaloneRelease.xcconfig"
 ditto "$app" "$stage/LogMyDailyTask.app"
 ln -s /Applications "$stage/Applications"
 hdiutil create -ov -format UDZO -volname LogMyDailyTask \

@@ -19,18 +19,14 @@ void main() {
     );
   });
 
-  test('supports custom intervals and both alignment modes', () {
+  test('supports custom intervals and a short shift', () {
     const clock = CheckInSchedule(startMinute: 550, intervalMinutes: 35);
-    const workStart = CheckInSchedule(
-      startMinute: 550,
-      intervalMinutes: 35,
-      alignToWorkStart: true,
-    );
+    const shortShift = CheckInSchedule(startMinute: 545, endMinute: 575);
     final beforeWork = DateTime(2026, 11, 13, 8);
     expect(clock.nextReminderAfter(beforeWork), DateTime(2026, 11, 13, 9, 55));
     expect(
-      workStart.nextReminderAfter(beforeWork),
-      DateTime(2026, 11, 13, 9, 45),
+      shortShift.nextReminderAfter(beforeWork),
+      DateTime(2026, 11, 13, 9, 35),
     );
     expect(
       const CheckInSchedule(enabled: false).nextReminderAfter(beforeWork),

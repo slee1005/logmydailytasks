@@ -4,7 +4,6 @@ class CheckInSchedule {
     this.startMinute = 9 * 60,
     this.endMinute = 18 * 60,
     this.intervalMinutes = 30,
-    this.alignToWorkStart = false,
     this.enabled = true,
   });
 
@@ -12,7 +11,6 @@ class CheckInSchedule {
   final int startMinute;
   final int endMinute;
   final int intervalMinutes;
-  final bool alignToWorkStart;
   final bool enabled;
 
   bool get isValid =>
@@ -25,13 +23,16 @@ class CheckInSchedule {
       endMinute - startMinute >= intervalMinutes &&
       intervalMinutes >= 5 &&
       intervalMinutes <= 120 &&
-      intervalMinutes % 5 == 0 &&
-      firstBoundary + intervalMinutes <= endMinute;
+      intervalMinutes % 5 == 0;
 
-  int get firstBoundary => alignToWorkStart
-      ? startMinute
-      : ((startMinute + intervalMinutes - 1) ~/ intervalMinutes) *
-            intervalMinutes;
+  int get _firstReminder {
+    final boundary =
+        ((startMinute + intervalMinutes - 1) ~/ intervalMinutes) *
+        intervalMinutes;
+    final first = boundary + intervalMinutes;
+    // A short shift can end before the first full clock-aligned slot.
+    return first > endMinute ? endMinute : first;
+  }
 
   DateTime? nextReminderAfter(DateTime now) =>
       remindersAfter(now, days: 8, localDate: DateTime.new).firstOrNull;
@@ -48,7 +49,7 @@ class CheckInSchedule {
       if (!workDays.contains(day.weekday)) continue;
 
       for (
-        var minute = firstBoundary + intervalMinutes;
+        var minute = _firstReminder;
         minute <= endMinute;
         minute += intervalMinutes
       ) {

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logmydailytask/app/worklog_app.dart';
 import 'package:logmydailytask/core/local_time.dart';
 import 'package:logmydailytask/data/db/database.dart';
+import 'package:logmydailytask/integrations/notifications/os_check_in_notifications.dart';
 
 void main() {
   Future<WorklogDatabase> launch(
@@ -25,6 +26,7 @@ void main() {
       ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(database),
+          osCheckInNotificationsProvider.overrideWithValue(null),
           timeZoneProvider.overrideWithValue(() async => 'America/Los_Angeles'),
           currentDateProvider.overrideWithValue(() => DateTime(2026, 11, 13)),
         ],
@@ -41,20 +43,131 @@ void main() {
     final database = await launch(tester, const Locale('en'));
     expect(find.text('Daily Worklog'), findsOneWidget);
     expect(find.text('November 2026'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Next month'));
     await tester.tap(find.byTooltip('Next month'));
     await tester.pumpAndSettle();
     expect(find.text('December 2026'), findsOneWidget);
 
-    final checkIn = find.text('Check in');
+    final checkIn = find.text('Add entry');
     await tester.tap(checkIn);
     await tester.pumpAndSettle();
     expect(find.text('What did you work on?'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Documentation');
     expect(find.text('Documentation'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Back to worklog'));
     await tester.tap(find.text('Back to worklog'));
     await tester.pumpAndSettle();
     expect(find.text('December 2026'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await tester.runAsync(database.close);
+  });
+
+  for (final (name, size) in [
+    ('iPhone', const Size(390, 844)),
+    ('Android phone', const Size(360, 800)),
+    ('tablet', const Size(768, 1024)),
+    ('desktop', const Size(1280, 900)),
+  ]) {
+    testWidgets('Swipes between daily logs and opens setup on $name', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final database = await launch(
+        tester,
+        const Locale('en'),
+        seed: (database) async {
+          for (final (day, label) in [
+            (12, 'Previous activity'),
+            (13, 'Current activity'),
+            (14, 'Next activity'),
+          ]) {
+            await database.saveCheckIn(
+              title: label,
+              at: DateTime(2026, 11, day),
+              tzName: 'Etc/UTC',
+            );
+          }
+        },
+      );
+      final carousel = find.byType(PageView);
+      expect(find.text('Current activity').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('Show note and category'), findsNothing);
+
+      final distance = tester.getSize(carousel).width * .78;
+      await tester.drag(carousel, Offset(-distance, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('Next activity').hitTestable(), findsOneWidget);
+
+      await tester.drag(carousel, Offset(distance, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('Current activity').hitTestable(), findsOneWidget);
+      await tester.tap(find.byTooltip('Previous day'));
+      await tester.pumpAndSettle();
+      expect(find.text('Previous activity').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.text('Today'));
+      await tester.pumpAndSettle();
+      expect(find.text('Current activity').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Work schedule'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsOneWidget);
+      await tester.ensureVisible(find.text('Save schedule'));
+      await tester.pumpAndSettle();
+      expect(find.text('Save schedule').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Google Sheets'));
+      await tester.pumpAndSettle();
+      expect(find.text('Device name'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.runAsync(database.close);
+    });
+  }
+
+  testWidgets('Offers recent activities as filterable pills', (tester) async {
+    final database = await launch(
+      tester,
+      const Locale('en'),
+      seed: (database) async {
+        final now = DateTime(2026, 11, 13);
+        for (final (title, hoursAgo) in [
+          ('Write project notes', 2),
+          ('Review the report', 30),
+          ('Write older notes', 49),
+        ]) {
+          await database.saveCheckIn(
+            title: title,
+            at: now.subtract(Duration(hours: hoursAgo)),
+            tzName: 'Etc/UTC',
+          );
+        }
+      },
+    );
+    await tester.tap(find.text('Add entry'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ActionChip), findsNWidgets(2));
+    final activity = find.byType(TextField).first;
+    await tester.enterText(activity, 'wri');
+    await tester.pumpAndSettle();
+    expect(find.byType(ActionChip), findsOneWidget);
+    await tester.tap(find.widgetWithText(ActionChip, 'Write project notes'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(activity).controller?.text,
+      'Write project notes',
+    );
+    expect(find.byType(ActionChip), findsNothing);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await tester.runAsync(database.close);
@@ -75,7 +188,7 @@ void main() {
         await database.addCategory('Meetings');
       },
     );
-    await tester.tap(find.text('Check in'));
+    await tester.tap(find.text('Add entry'));
     await tester.pumpAndSettle();
 
     final dropdown = find.byType(DropdownButton<String>);
@@ -137,7 +250,7 @@ void main() {
   ) async {
     final database = await launch(tester, const Locale('ko'));
     expect(find.text('일일 업무 기록'), findsOneWidget);
-    final checkIn = find.text('체크인');
+    final checkIn = find.text('기록 추가');
     await tester.tap(checkIn);
     await tester.pumpAndSettle();
     expect(find.text('어떤 일을 하셨나요?'), findsOneWidget);
@@ -166,15 +279,33 @@ void main() {
     final activity = find.text('주간 보고서 작성');
 
     expect(activity, findsOneWidget);
+    expect(find.text('보고서'), findsNothing);
+    expect(find.textContaining('회의 후 초안 정리'), findsNothing);
+    await tester.tap(find.byTooltip('노트·카테고리 보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('보고서'), findsOneWidget);
     expect(find.textContaining('회의 후 초안 정리'), findsOneWidget);
+    await tester.tap(find.byTooltip('노트·카테고리 접기'));
+    await tester.pumpAndSettle();
+    expect(find.text('보고서'), findsNothing);
+    expect(find.textContaining('회의 후 초안 정리'), findsNothing);
     final markedDay = find.byTooltip('Fri, 11/13/2026, 기록 1건');
     await tester.ensureVisible(markedDay);
+    await tester.pumpAndSettle();
     await tester.tap(markedDay);
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.byType(AlertDialog), matching: activity),
       findsOneWidget,
     );
+    final dialogDetails = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byTooltip('노트·카테고리 보기'),
+    );
+    await tester.tap(dialogDetails);
+    await tester.pumpAndSettle();
+    expect(find.text('보고서'), findsOneWidget);
+    expect(find.textContaining('회의 후 초안 정리'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await tester.runAsync(database.close);

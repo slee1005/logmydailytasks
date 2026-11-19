@@ -6,6 +6,128 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logmydailytask/data/db/database.dart';
 
 void main() {
+  test(
+    'closes this device previous task and queues both records for sync',
+    () async {
+      final database = WorklogDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.linkSheet('account@example.test', 'shared');
+      final settings = await database.ensureSheetSettings();
+      final firstStart = DateTime.utc(2026, 11, 19, 7, 30);
+      await database.saveCheckIn(
+        title: 'Task A',
+        at: firstStart,
+        tzName: 'Etc/UTC',
+      );
+      final original = (await database.pendingSheetRecords(settings)).single;
+      await database.markSheetRecords([original]);
+      await database.importSheetRecords([
+        (
+          id: 'other-device-task',
+          title: 'Other device',
+          note: null,
+          category: null,
+          start: firstStart
+              .add(const Duration(minutes: 20))
+              .millisecondsSinceEpoch,
+          end: null,
+          zone: 'Etc/UTC',
+          device: 'Phone',
+          platform: 'iOS',
+          deviceId: 'phone',
+          updated: firstStart.millisecondsSinceEpoch,
+          deleted: false,
+        ),
+      ], settings.deviceId);
+
+      final secondStart = firstStart.add(const Duration(minutes: 45));
+      final thirdStart = secondStart.add(const Duration(minutes: 45));
+      await database.saveCheckIn(
+        title: 'Task B',
+        at: secondStart,
+        tzName: 'Etc/UTC',
+      );
+      await database.markSheetRecords([original]);
+      var rows = await database.select(database.entries).get();
+      final first = rows.singleWhere((row) => row.id == original.id);
+      expect(first.endAt, secondStart.millisecondsSinceEpoch);
+      expect(first.sheetState, 'pending');
+      expect(first.syncedAt, isNull);
+      expect(first.updatedAt, greaterThan(original.updated));
+      expect(
+        rows.singleWhere((row) => row.id == 'other-device-task').endAt,
+        isNull,
+      );
+
+      await database.saveCheckIn(
+        title: 'Task C',
+        at: thirdStart,
+        tzName: 'Etc/UTC',
+      );
+      final pending = await database.pendingSheetRecords(settings);
+      expect(
+        pending.map((record) => record.title),
+        unorderedEquals(['Task A', 'Task B', 'Task C']),
+      );
+      expect(
+        pending.singleWhere((record) => record.title == 'Task B').end,
+        thirdStart.millisecondsSinceEpoch,
+      );
+      expect(
+        pending.singleWhere((record) => record.title == 'Task C').end,
+        isNull,
+      );
+
+      final explicitEnd = thirdStart.add(const Duration(minutes: 50));
+      await database.saveCheckIn(
+        title: 'Finished task',
+        at: thirdStart.add(const Duration(minutes: 10)),
+        end: explicitEnd,
+        tzName: 'Etc/UTC',
+      );
+      await database.saveCheckIn(
+        title: 'Next task',
+        at: explicitEnd.add(const Duration(minutes: 15)),
+        tzName: 'Etc/UTC',
+      );
+      rows = await database.select(database.entries).get();
+      expect(
+        rows.where((row) => row.endAt == explicitEnd.millisecondsSinceEpoch),
+        hasLength(1),
+      );
+      expect(
+        rows.singleWhere((row) => row.id == 'other-device-task').endAt,
+        isNull,
+      );
+    },
+  );
+
+  test(
+    'rolls back the previous task end when a new task cannot be saved',
+    () async {
+      final database = WorklogDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final at = DateTime.utc(2026, 11, 19, 7, 30);
+      await database.saveCheckIn(title: 'Existing', at: at, tzName: 'Etc/UTC');
+      final original = (await database.select(database.entries).get()).single;
+      await database.customStatement(
+        "CREATE TRIGGER reject_new_entry BEFORE INSERT ON entries "
+        "WHEN NEW.note = 'reject' BEGIN SELECT RAISE(ABORT, 'test failure'); END",
+      );
+      await expectLater(
+        database.saveCheckIn(
+          title: 'Rejected',
+          at: at.add(const Duration(minutes: 45)),
+          note: 'reject',
+          tzName: 'Etc/UTC',
+        ),
+        throwsA(isA<Exception>()),
+      );
+      expect((await database.select(database.entries).get()).single, original);
+      expect(await database.select(database.activities).get(), hasLength(1));
+    },
+  );
+
   test('updates the category list and preserves old check-ins', () async {
     final database = WorklogDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -85,6 +207,68 @@ void main() {
     final reopened = WorklogDatabase(NativeDatabase(file));
     addTearDown(reopened.close);
     expect(await reopened.watchCategories().first, isEmpty);
+  });
+
+  test('opens version 5 when the archived column already exists', () async {
+    final directory = await Directory.systemTemp.createTemp('category-v5-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/worklog.sqlite');
+    final original = WorklogDatabase(NativeDatabase(file));
+    final at = DateTime.utc(2026, 11, 19, 7, 30);
+    late WorkEntry saved;
+    late SheetSetting settings;
+    try {
+      await original.addCategory('Docs');
+      await original.addCategory('Archived');
+      await original.deleteCategory('Archived');
+      await original.linkSheet('account@example.test', 'existing-sheet');
+      await original.renameSheetDevice('Original Mac');
+      await original.saveCheckIn(
+        title: 'Existing task',
+        at: at,
+        tzName: 'Etc/UTC',
+        category: 'Docs',
+      );
+      saved = (await original.select(original.entries).get()).single;
+      settings = await original.ensureSheetSettings();
+      await original.customStatement('PRAGMA user_version = 5');
+    } finally {
+      await original.close();
+    }
+
+    final migrated = WorklogDatabase(NativeDatabase(file));
+    try {
+      expect(await migrated.watchCategories().first, ['Docs']);
+      expect((await migrated.select(migrated.entries).get()).single, saved);
+      expect(await migrated.ensureSheetSettings(), settings);
+      expect(
+        (await migrated.select(migrated.workCategories).get())
+            .singleWhere((category) => category.name == 'Archived')
+            .archived,
+        isTrue,
+      );
+      await migrated.saveCheckIn(
+        title: 'Next task',
+        at: at.add(const Duration(minutes: 45)),
+        tzName: 'Etc/UTC',
+      );
+      await migrated.renameSheetDevice('Updated Mac');
+      await migrated.linkSheet('account@example.test', 'existing-sheet');
+    } finally {
+      await migrated.close();
+    }
+
+    final reopened = WorklogDatabase(NativeDatabase(file));
+    addTearDown(reopened.close);
+    expect(await reopened.select(reopened.entries).get(), hasLength(2));
+    final restoredSettings = await reopened.ensureSheetSettings();
+    expect(restoredSettings.deviceLabel, 'Updated Mac');
+    expect(restoredSettings.spreadsheet, 'existing-sheet');
+    expect(
+      (await reopened.customSelect('PRAGMA user_version').getSingle())
+          .read<int>('user_version'),
+      6,
+    );
   });
 
   test(
@@ -202,8 +386,10 @@ void main() {
             endMinute: 1050,
             intervalMinutes: 15,
             enabled: false,
-            alignToWorkStart: true,
           ),
+        );
+        await migrated.customStatement(
+          "UPDATE work_schedules SET align_to_work_start = 1",
         );
       } finally {
         await migrated.close();
@@ -217,21 +403,27 @@ void main() {
         expect(schedule.endMinute, 1050);
         expect(schedule.intervalMinutes, 15);
         expect(schedule.enabled, isFalse);
-        expect(schedule.alignToWorkStart, isTrue);
+        await reopened.setRemindersEnabled(true);
+        final enabled = await reopened.getSchedule();
+        expect(enabled.enabled, isTrue);
+        expect(enabled.workDays, {2, 6});
+        expect(enabled.startMinute, 550);
+        expect(enabled.endMinute, 1050);
+        expect(enabled.intervalMinutes, 15);
       } finally {
         await reopened.close();
       }
     },
   );
   test(
-    'history uses a seven-day window and export preserves the selected zone',
+    'history uses a rolling 48-hour window and export preserves the selected zone',
     () async {
       final database = WorklogDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       final now = DateTime.utc(2026, 11, 13);
       await database.saveCheckIn(
         title: 'Older work',
-        at: now.subtract(const Duration(days: 8)),
+        at: now.subtract(const Duration(days: 2, seconds: 1)),
         tzName: 'Etc/UTC',
       );
       await database.saveCheckIn(
@@ -242,16 +434,16 @@ void main() {
         deviceName: 'iOS',
         devicePlatform: 'iOS',
       );
+      await database.saveCheckIn(
+        title: 'Work at the cutoff',
+        at: now.subtract(const Duration(days: 2)),
+        tzName: 'Etc/UTC',
+      );
       final recent = await database.activitySuggestions(through: now);
-      expect(recent.map((item) => item.title), ['New work']);
-      final all = await database.activitySuggestions(
-        through: now,
-        recentOnly: false,
-      );
-      expect(
-        all.map((item) => item.title),
-        unorderedEquals(['New work', 'Older work']),
-      );
+      expect(recent.map((item) => item.title), [
+        'New work',
+        'Work at the cutoff',
+      ]);
       await database.customStatement(
         'UPDATE entries SET created_at = start_at',
       );

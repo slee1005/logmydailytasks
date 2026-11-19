@@ -5,10 +5,11 @@ import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import 'sheet_scopes.dart';
+
 const _clientId = String.fromEnvironment('GOOGLE_SHEETS_CLIENT_ID');
 const _clientSecret = String.fromEnvironment('GOOGLE_SHEETS_CLIENT_SECRET');
 const sheetsConfigured = _clientId != '' && _clientSecret != '';
-const _scope = 'https://www.googleapis.com/auth/drive.file';
 final _oauth = ClientId(_clientId, _clientSecret);
 const _storage = FlutterSecureStorage(
   mOptions: MacOsOptions(usesDataProtectionKeychain: false),
@@ -21,7 +22,7 @@ Future<http.Client> signInToSheets(void Function(Uri) browserFallback) async {
   try {
     final credentials = await obtainAccessCredentialsViaUserConsent(
       _oauth,
-      [_scope, 'openid', 'email'],
+      [...sheetsConnectionScopes, 'openid', 'email'],
       transport,
       (url) async {
         final uri = Uri.parse(url);

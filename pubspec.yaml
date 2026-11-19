@@ -1,7 +1,7 @@
 name: logmydailytask
 description: Local-first personal worklog.
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.2.3+10
 
 environment:
   sdk: ^3.12.0

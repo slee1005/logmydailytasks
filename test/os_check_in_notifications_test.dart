@@ -47,6 +47,7 @@ void main() {
     final pending = <int, Map<String, Object?>>{};
     final scheduled = <int>[];
     var taps = 0;
+    var clearCalls = 0;
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
         case 'initialize':
@@ -72,6 +73,10 @@ void main() {
             for (final key in ['id', 'title', 'body', 'payload'])
               key: args[key],
           };
+          return null;
+        case 'cancelAll':
+          clearCalls++;
+          pending.clear();
           return null;
         case 'cancel':
           pending.remove((call.arguments as Map)['id']);
@@ -118,7 +123,16 @@ void main() {
     expect(firstBatch, 60);
     expect(await sync(schedule), isTrue);
     expect(scheduled, hasLength(firstBatch));
+    pending[1] = {'id': 1, 'title': 'Legacy work reminder'};
     expect(await sync(const CheckInSchedule(enabled: false)), isFalse);
+    expect(clearCalls, 1);
+    expect(pending, isEmpty);
+
+    final scheduling = sync(schedule);
+    final disabling = notifications.clearReminders();
+    expect(await scheduling, isTrue);
+    await disabling;
+    expect(clearCalls, 2);
     expect(pending, isEmpty);
   });
 }

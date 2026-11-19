@@ -26,6 +26,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" build/LogMyDailyTask-macOS.dmg \
-            --verify-tag --latest \
-            --notes "Apple silicon용 DMG입니다. 앱을 Applications로 드래그해 설치하세요. Apple 공증을 받지 않은 빌드이며, 이 공개 빌드에서는 Google Sheets 로그인이 제공되지 않습니다."
+          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --latest \
+              --notes "앱을 Applications로 드래그해 설치하세요. Apple 공증을 받지 않은 공개 DMG이며 Google Sheets 로그인은 제공되지 않습니다. Google Sheets 연동은 App Store/TestFlight 빌드를 사용하세요."
+          fi
+          gh release upload "$GITHUB_REF_NAME" build/LogMyDailyTask-macOS.dmg --clobber

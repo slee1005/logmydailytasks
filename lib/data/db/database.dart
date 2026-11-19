@@ -6,7 +6,6 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/activity_suggestions.dart';
@@ -14,6 +13,7 @@ import '../../domain/worklog_csv.dart';
 import '../../domain/scheduler/check_in_schedule.dart';
 
 import '../../integrations/sheets/sheet_record.dart';
+import 'database_key_stub.dart' if (dart.library.io) 'database_key_io.dart';
 
 part 'database.g.dart';
 
@@ -125,43 +125,61 @@ class WorklogDatabase extends _$WorklogDatabase {
         await m.addColumn(entries, entries.category);
         await m.createTable(workCategories);
       } else if (from < 6) {
-        await m.addColumn(workCategories, workCategories.archived);
+        // Some version 5 installations already created this column.
+        final columns = await customSelect(
+          'PRAGMA table_info(work_categories)',
+        ).get();
+        if (!columns.any((column) => column.read<String>('name') == 'archived')) {
+          await m.addColumn(workCategories, workCategories.archived);
+        }
       }
     },
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
 
-  Stream<CheckInSchedule> watchSchedule() {
-    return (select(
-      workSchedules,
-    )..where((row) => row.id.equals(1))).watchSingleOrNull().map(
-      (row) => row == null
-          ? const CheckInSchedule()
-          : CheckInSchedule(
-              workDays: row.workDays.split(',').map(int.parse).toSet(),
-              startMinute: row.startMinute,
-              endMinute: row.endMinute,
-              intervalMinutes: row.intervalMinutes,
-              alignToWorkStart: row.alignToWorkStart,
-              enabled: row.enabled,
-            ),
+  SimpleSelectStatement<$WorkSchedulesTable, WorkSchedule> _workSchedule() =>
+      select(workSchedules)..where((row) => row.id.equals(1));
+
+  CheckInSchedule _decodeSchedule(WorkSchedule? row) => row == null
+      ? const CheckInSchedule()
+      : CheckInSchedule(
+          workDays: row.workDays.split(',').map(int.parse).toSet(),
+          startMinute: row.startMinute,
+          endMinute: row.endMinute,
+          intervalMinutes: row.intervalMinutes,
+          enabled: row.enabled,
+        );
+
+  Stream<CheckInSchedule> watchSchedule() =>
+      _workSchedule().watchSingleOrNull().map(_decodeSchedule);
+
+  Future<CheckInSchedule> getSchedule() async =>
+      _decodeSchedule(await _workSchedule().getSingleOrNull());
+
+  Future<void> setRemindersEnabled(bool enabled) async {
+    await into(workSchedules).insert(
+      _scheduleValues(CheckInSchedule(enabled: enabled)),
+      onConflict: DoUpdate(
+        (_) => WorkSchedulesCompanion(enabled: Value(enabled)),
+      ),
     );
   }
 
   Future<void> saveSchedule(CheckInSchedule schedule) async {
     if (!schedule.isValid) throw ArgumentError('Invalid work schedule');
-    await into(workSchedules).insertOnConflictUpdate(
+    await into(workSchedules).insertOnConflictUpdate(_scheduleValues(schedule));
+  }
+
+  WorkSchedulesCompanion _scheduleValues(CheckInSchedule schedule) =>
       WorkSchedulesCompanion.insert(
         id: const Value(1),
         workDays: (schedule.workDays.toList()..sort()).join(','),
         startMinute: schedule.startMinute,
         endMinute: schedule.endMinute,
         intervalMinutes: schedule.intervalMinutes,
-        alignToWorkStart: schedule.alignToWorkStart,
+        alignToWorkStart: false,
         enabled: schedule.enabled,
-      ),
-    );
-  }
+      );
 
   SimpleSelectStatement<$SheetSettingsTable, SheetSetting> _sheetSetting() =>
       select(sheetSettings)..where((row) => row.id.equals(1));
@@ -472,6 +490,36 @@ class WorklogDatabase extends _$WorklogDatabase {
                     row.titleNorm.equals(normalized) & row.deletedAt.isNull(),
               ))
               .getSingle();
+      final previous =
+          await (select(entries)
+                ..where(
+                  (row) =>
+                      row.originDevice.isNull() &
+                      row.deletedAt.isNull() &
+                      row.endAt.isNull() &
+                      row.startAt.isSmallerThanValue(timestamp),
+                )
+                ..orderBy([
+                  (row) => OrderingTerm.desc(row.startAt),
+                  (row) => OrderingTerm.desc(row.id),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
+      if (previous != null) {
+        await (update(
+          entries,
+        )..where((row) => row.id.equals(previous.id))).write(
+          EntriesCompanion(
+            endAt: Value(timestamp),
+            sheetState: Value(
+              settings?.spreadsheet == null ? 'none' : 'pending',
+            ),
+            syncedAt: const Value(null),
+            sheetError: const Value(null),
+            updatedAt: Value(max(savedAt, previous.updatedAt + 1)),
+          ),
+        );
+      }
       await into(entries).insert(
         EntriesCompanion.insert(
           id: uuid.v7(),
@@ -493,18 +541,16 @@ class WorklogDatabase extends _$WorklogDatabase {
 
   Future<List<ActivitySuggestion>> activitySuggestions({
     required DateTime through,
-    bool recentOnly = true,
   }) async {
     final rows = await customSelect(
       """SELECT a.title, COUNT(e.id) AS uses, MAX(e.start_at) AS latest
       FROM activities a JOIN entries e ON e.activity_id = a.id
       WHERE a.deleted_at IS NULL AND e.deleted_at IS NULL
-        AND (? = 0 OR e.start_at BETWEEN ? AND ?)
-      GROUP BY a.id""",
+        AND e.start_at BETWEEN ? AND ?
+      GROUP BY a.id ORDER BY latest DESC, uses DESC, a.title""",
       variables: [
-        Variable<int>(recentOnly ? 1 : 0),
         Variable<int>(
-          through.subtract(const Duration(days: 7)).millisecondsSinceEpoch,
+          through.subtract(const Duration(days: 2)).millisecondsSinceEpoch,
         ),
         Variable<int>(through.millisecondsSinceEpoch),
       ],
@@ -618,7 +664,7 @@ class WorklogDatabase extends _$WorklogDatabase {
 final databaseProvider = Provider<WorklogDatabase>((ref) {
   final database = WorklogDatabase(
     LazyDatabase(() async {
-      final key = kIsWeb ? null : await _loadDatabaseKey();
+      final key = kIsWeb ? null : await loadDatabaseKey();
       return driftDatabase(
         name: 'logmydailytask',
         native: DriftNativeOptions(
@@ -665,28 +711,6 @@ final weeklyEntriesProvider = StreamProvider.autoDispose
       (ref, monday) =>
           ref.watch(databaseProvider).watchWeeklyActivities(monday),
     );
-
-Future<String> _loadDatabaseKey() async {
-  const storage = FlutterSecureStorage(
-    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
-    aOptions: AndroidOptions(resetOnError: false),
-  );
-  const name = 'logmydailytask.sqlite.key';
-  final existing = await storage.read(key: name);
-  if (existing != null) {
-    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(existing)) {
-      throw StateError('Invalid database key');
-    }
-    return existing;
-  }
-  final random = Random.secure();
-  final key = List.generate(
-    32,
-    (_) => random.nextInt(256),
-  ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-  await storage.write(key: name, value: key);
-  return key;
-}
 
 final workScheduleProvider = StreamProvider<CheckInSchedule>(
   (ref) => ref.watch(databaseProvider).watchSchedule(),

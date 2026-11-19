@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/widgets/worklog_layout.dart';
 import '../../data/db/database.dart';
 import '../../integrations/sheets/google_session.dart';
 import '../../integrations/sheets/mobile_session.dart';
@@ -18,7 +20,20 @@ class SheetPage extends ConsumerStatefulWidget {
 class _SheetPageState extends ConsumerState<SheetPage> {
   bool _busy = false;
   bool _failed = false;
+  String? _failureDetail;
   Uri? _loginUrl;
+
+  Future<void> _openSheet(Uri url) async {
+    try {
+      if (await launchUrl(url, mode: LaunchMode.externalApplication)) return;
+    } catch (_) {
+      // Keep the URL available for copying when the browser cannot be opened.
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.sheetOpenError)),
+    );
+  }
 
   Future<void> _connect() async {
     final strings = AppLocalizations.of(context)!;
@@ -27,6 +42,7 @@ class _SheetPageState extends ConsumerState<SheetPage> {
     setState(() {
       _busy = true;
       _failed = false;
+      _failureDetail = null;
     });
     try {
       final client = await (sheetsMobile
@@ -65,6 +81,17 @@ class _SheetPageState extends ConsumerState<SheetPage> {
         await sync.run();
       } finally {
         client.close();
+      }
+    } on SheetsFailure catch (error) {
+      if (mounted) {
+        setState(() {
+          _failed = true;
+          _failureDetail = [
+            ?error.api,
+            'HTTP ${error.status}',
+            ?error.reason,
+          ].join(' · ');
+        });
       }
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -133,42 +160,76 @@ class _SheetPageState extends ConsumerState<SheetPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final setting = ref.watch(sheetSettingsProvider).value;
-    return Scaffold(
-      appBar: AppBar(title: Text(strings.sheetTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+    return AppContainer(
+      title: strings.sheetTitle,
+      body: AppContent(
         children: [
-          ListTile(
-            title: Text(strings.sheetDevice),
-            subtitle: Text(setting?.deviceLabel ?? strings.deviceZone),
-            onTap: _busy ? null : () => _rename(setting?.deviceLabel),
-          ),
-          Text(strings.sheetPrivacy),
-          if (setting?.account case final account?) ...[
-            const SizedBox(height: 12),
-            Text(account),
-            TextButton(
-              onPressed: _busy ? null : () => _disconnect(account),
-              child: Text(strings.sheetDisconnect),
-            ),
-            SelectableText(
-              'https://docs.google.com/spreadsheets/d/${setting!.spreadsheet}',
-            ),
-          ],
-          if (!sheetsAvailable) Text(strings.sheetUnavailable),
-          if (setting?.error == 'auth') Text(strings.sheetReauthenticate),
-          if (setting?.error == 'retry') Text(strings.sheetRetry),
-          if (setting?.error == 'sheet' || _failed) Text(strings.sheetFailure),
-          if (_loginUrl case final url?) SelectableText(url.toString()),
-          if (_busy) const LinearProgressIndicator(),
-          if (sheetsAvailable)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: FilledButton(
-                onPressed: _busy ? null : _connect,
-                child: Text(strings.sheetConnect),
+          SettingsCard(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.devices_outlined),
+                title: Text(strings.sheetDevice),
+                subtitle: Text(setting?.deviceLabel ?? strings.deviceZone),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _busy ? null : () => _rename(setting?.deviceLabel),
               ),
-            ),
+            ],
+          ),
+          SettingsCard(
+            children: [
+              Text(strings.sheetPrivacy),
+              if (setting?.account case final account?) ...[
+                const SizedBox(height: 12),
+                Text(account),
+                TextButton(
+                  onPressed: _busy ? null : () => _disconnect(account),
+                  child: Text(strings.sheetDisconnect),
+                ),
+                if (setting?.spreadsheet case final spreadsheet?)
+                  SelectionArea(
+                    child: Semantics(
+                      link: true,
+                      child: TextButton.icon(
+                        onPressed: () => _openSheet(
+                          Uri.https(
+                            'docs.google.com',
+                            '/spreadsheets/d/$spreadsheet',
+                          ),
+                        ),
+                        icon: const Icon(Icons.open_in_new),
+                        label: Text(
+                          'https://docs.google.com/spreadsheets/d/$spreadsheet',
+                          style: const TextStyle(
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+              if (!sheetsAvailable) Text(strings.sheetUnavailable),
+              if (setting?.error == 'auth') Text(strings.sheetReauthenticate),
+              if (setting?.error == 'retry') Text(strings.sheetRetry),
+              if (setting?.error == 'sheet' || _failed)
+                Text(strings.sheetFailure),
+              if (_failureDetail case final detail?)
+                SelectionArea(child: Text(detail)),
+              if (_loginUrl case final url?)
+                SelectionArea(child: Text(url.toString())),
+              if (_busy) const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+              if (sheetsAvailable)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: ActionButton(
+                    onPressed: _busy ? null : _connect,
+                    icon: Icons.cloud_outlined,
+                    label: strings.sheetConnect,
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );

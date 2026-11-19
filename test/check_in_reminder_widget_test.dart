@@ -15,7 +15,9 @@ void main() {
     tester.binding.platformDispatcher.localesTestValue = [const Locale('en')];
     addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
     final database = WorklogDatabase(NativeDatabase.memory());
-    await tester.runAsync(() => database.watchSchedule().first);
+    final ready = database.getSchedule();
+    await tester.pump();
+    await ready;
     var now = DateTime(2026, 11, 13, 9, 29, 59);
     await tester.pumpWidget(
       ProviderScope(
@@ -32,23 +34,32 @@ void main() {
     await tester.tap(find.byTooltip('Work schedule'));
     await tester.pumpAndSettle();
     expect(find.byType(DropdownMenu<int>), findsOneWidget);
-    await tester.tap(find.text('Align intervals to the start of work'));
+    expect(find.text('Align intervals to the start of work'), findsNothing);
+    final toggle = find.byType(SwitchListTile);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('Scheduled reminders are off.'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Work schedule'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
     final save = find.text('Save schedule');
     await tester.scrollUntilVisible(
       save,
       100,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(find.text('Daily Worklog'), findsOneWidget);
-    expect(
-      (await tester.runAsync(
-        () => database.watchSchedule().first,
-      ))?.alignToWorkStart,
-      isTrue,
-    );
-
     await tester.pumpAndSettle();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -60,7 +71,7 @@ void main() {
       find.text('Time to check in. What did you work on?'),
       findsOneWidget,
     );
-    await tester.tap(find.widgetWithText(SnackBarAction, 'Check in'));
+    await tester.tap(find.widgetWithText(SnackBarAction, 'Add entry'));
     await tester.pumpAndSettle();
     expect(find.text('What did you work on?'), findsOneWidget);
 

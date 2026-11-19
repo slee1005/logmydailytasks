@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../app/widgets/worklog_layout.dart';
 import '../../core/local_time.dart';
 import '../../data/db/database.dart';
 import '../../domain/worklog_csv.dart';
@@ -75,8 +76,8 @@ class CsvExportButton extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => IconButton(
-    icon: const Icon(Icons.file_download_outlined),
+  Widget build(BuildContext context, WidgetRef ref) => WorklogIconButton(
+    icon: Icons.file_download_outlined,
     tooltip: AppLocalizations.of(context)!.csvExport,
     onPressed: () => _export(context, ref),
   );

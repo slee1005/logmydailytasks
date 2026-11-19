@@ -33,6 +33,7 @@ class OsCheckInNotifications {
   static const _channelId = 'worklog_check_ins';
   final _plugin = FlutterLocalNotificationsPlugin();
   Future<void>? _initializing;
+  Future<void> _scheduleQueue = Future.value();
 
   Future<void> initialize(VoidCallback onTap) async {
     try {
@@ -113,6 +114,19 @@ class OsCheckInNotifications {
     return allowed;
   }
 
+  Future<T> _updateSchedule<T>(Future<T> Function() update) {
+    final result = _scheduleQueue.then((_) => update());
+    _scheduleQueue = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  // Check-ins are the only notifications this app schedules. Clear legacy
+  // requests as well, including requests without a recognized payload.
+  Future<void> clearReminders() => _updateSchedule(_plugin.cancelAll);
+
   Future<bool> sync({
     required CheckInSchedule schedule,
     required DateTime now,
@@ -120,16 +134,13 @@ class OsCheckInNotifications {
     required String title,
     required String body,
     required String channelName,
-  }) async {
-    final allowed = schedule.enabled && await isAllowed();
-    final pending = await _plugin.pendingNotificationRequests();
-    if (!allowed) {
-      for (final item in pending.where((item) => _isCheckIn(item.payload))) {
-        await _plugin.cancel(id: item.id);
-      }
+  }) => _updateSchedule(() async {
+    if (!schedule.enabled || !await isAllowed()) {
+      await _plugin.cancelAll();
       return false;
     }
 
+    final pending = await _plugin.pendingNotificationRequests();
     final location = tz.getLocation(zone);
     final exact = await _android?.canScheduleExactNotifications() ?? true;
     final slots = checkInNotificationTimes(schedule, now, location);
@@ -174,7 +185,7 @@ class OsCheckInNotifications {
       );
     }
     return true;
-  }
+  });
 }
 
 List<tz.TZDateTime> checkInNotificationTimes(

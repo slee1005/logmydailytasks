@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../app/widgets/worklog_layout.dart';
 import '../../core/local_time.dart';
 import '../../core/work_time.dart';
 import '../../data/db/database.dart';
@@ -194,7 +195,6 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
   );
 
   List<ActivitySuggestion> _activities = [];
-  bool _older = false;
   bool _dismissed = false;
   int _highlighted = -1;
   String? _zone;
@@ -209,28 +209,22 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
     _loadActivities();
   }
 
-  Future<void> _loadActivities({bool older = false}) async {
+  Future<void> _loadActivities() async {
     try {
       final rows = await ref
           .read(databaseProvider)
-          .activitySuggestions(
-            through: ref.read(currentDateProvider)(),
-            recentOnly: !older,
-          );
-      if (mounted && (!_older || older)) {
-        setState(() {
-          _activities = rows;
-          _older = older;
-          _highlighted = -1;
-        });
-      }
+          .activitySuggestions(through: ref.read(currentDateProvider)());
+      if (mounted) setState(() => _activities = rows);
     } catch (_) {
       // Typing and saving remain available if history cannot be loaded.
     }
   }
 
-  List<ActivitySuggestion> get _matches =>
-      _dismissed ? [] : rankActivities(_activities, _activity.text);
+  List<ActivitySuggestion> get _matches {
+    if (_dismissed) return const [];
+    if (_activity.text.trim().isEmpty) return _activities.take(6).toList();
+    return rankActivities(_activities, _activity.text);
+  }
 
   void _choose(ActivitySuggestion suggestion) {
     setState(() {
@@ -245,13 +239,13 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
 
   KeyEventResult _handleSuggestionKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent || _saving) return KeyEventResult.ignored;
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      setState(() => _dismissed = true);
-      return KeyEventResult.handled;
-    }
     final matches = _matches;
     if (matches.isEmpty || !_activity.value.composing.isCollapsed) {
       return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      setState(() => _dismissed = true);
+      return KeyEventResult.handled;
     }
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowDown ||
@@ -265,6 +259,9 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.tab) {
+      if (_highlighted < 0 && _activity.text.trim().isEmpty) {
+        return KeyEventResult.ignored;
+      }
       _choose(matches[_highlighted < 0 ? 0 : _highlighted]);
       return KeyEventResult.handled;
     }
@@ -409,154 +406,172 @@ class _CheckInPageState extends ConsumerState<CheckInPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final matches = _matches;
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+    );
     final categories = {...?ref.watch(_categories).value, ?_category}.toList();
     String label(DateTime? date) => date == null
         ? strings.chooseWorkTime
         : '${formatWorkDate(date)} ${TimeOfDay.fromDateTime(date).format(context)}';
-    return Scaffold(
-      appBar: AppBar(title: Text(strings.checkInTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+    return AppContainer(
+      title: strings.checkInTitle,
+      body: AppContent(
         children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    strings.checkInPrompt,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 16),
-                  Focus(
-                    onKeyEvent: _handleSuggestionKey,
-                    child: TextField(
-                      controller: _activity,
-                      readOnly: _saving,
-                      maxLength: 200,
-                      onChanged: (_) {
-                        setState(() {
-                          _error = null;
-                          _dismissed = false;
-                          _highlighted = -1;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: strings.activityLabel,
-                        errorText: _error,
-                      ),
-                    ),
-                  ),
-                  if (!_saving && !_dismissed) ...[
-                    for (final (index, match) in matches.indexed)
-                      ListTile(
-                        dense: true,
-                        selected: index == _highlighted,
-                        title: Text(match.title),
-                        onTap: () => _choose(match),
-                      ),
-                    if (_activity.text.trim().isNotEmpty &&
-                        matches.isEmpty &&
-                        !_older)
-                      TextButton(
-                        onPressed: () => _loadActivities(older: true),
-                        child: Text(strings.searchOlderActivities),
-                      ),
-                  ],
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _note,
+          SectionCard(
+            title: strings.checkInPrompt,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Focus(
+                  onKeyEvent: _handleSuggestionKey,
+                  child: TextField(
+                    controller: _activity,
                     readOnly: _saving,
-                    minLines: 2,
-                    maxLines: 4,
-                    maxLength: 2000,
+                    maxLength: 200,
+                    onChanged: (_) {
+                      setState(() {
+                        _error = null;
+                        _dismissed = false;
+                        _highlighted = -1;
+                      });
+                    },
                     decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      labelText: strings.noteLabel,
+                      border: fieldBorder,
+                      filled: true,
+                      labelText: strings.activityLabel,
+                      errorText: _error,
                     ),
                   ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: _category ?? '',
-                          onChanged: _saving
-                              ? null
-                              : (value) => setState(
-                                  () => _category = value == '' ? null : value,
-                                ),
-                          items: [
-                            DropdownMenuItem(
-                              value: '',
-                              child: Text(strings.noCategory),
+                ),
+                if (!_saving && matches.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final (index, match) in matches.indexed)
+                          ActionChip(
+                            backgroundColor: index == _highlighted
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHigh,
+                            side: BorderSide.none,
+                            shape: const StadiumBorder(),
+                            tooltip: match.title,
+                            label: Text(
+                              match.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            for (final category in categories)
-                              DropdownMenuItem(
-                                value: category,
-                                child: Text(category),
+                            onPressed: () => _choose(match),
+                          ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _note,
+                  readOnly: _saving,
+                  minLines: 2,
+                  maxLines: 4,
+                  maxLength: 2000,
+                  decoration: InputDecoration(
+                    border: fieldBorder,
+                    filled: true,
+                    labelText: strings.noteLabel,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: _category ?? '',
+                        onChanged: _saving
+                            ? null
+                            : (value) => setState(
+                                () => _category = value == '' ? null : value,
                               ),
-                          ],
-                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: '',
+                            child: Text(strings.noCategory),
+                          ),
+                          for (final category in categories)
+                            DropdownMenuItem(
+                              value: category,
+                              child: Text(
+                                category,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: _saving ? null : () => _editCategory(),
-                        tooltip: strings.addCategory,
-                        icon: const Icon(Icons.add),
-                      ),
-                      IconButton(
-                        onPressed: _saving ? null : _manageCategories,
-                        tooltip: strings.manageCategories,
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                    ],
-                  ),
-                  ExpansionTile(
-                    title: Text(strings.workTimeRange),
-                    children: [
-                      ListTile(
-                        title: Text(strings.workZone),
-                        subtitle: Text(_zone ?? strings.deviceZone),
-                        onTap: _saving ? null : _pickZone,
-                      ),
-                      ListTile(
-                        title: Text(strings.workStart),
-                        subtitle: Text(label(_start)),
-                        onTap: _saving
-                            ? null
-                            : () => _pickWorkTime(start: true),
-                      ),
-                      ListTile(
-                        title: Text(strings.workEnd),
-                        subtitle: Text(label(_end)),
-                        onTap: _saving
-                            ? null
-                            : () => _pickWorkTime(start: false),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: Text(strings.saveCheckIn),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () {
-                            if (context.canPop()) {
-                              context.pop();
-                            } else {
-                              context.go('/');
-                            }
-                          },
-                    child: Text(strings.backToWorklog),
-                  ),
-                ],
-              ),
+                    ),
+                    WorklogIconButton(
+                      onPressed: _saving ? null : () => _editCategory(),
+                      tooltip: strings.addCategory,
+                      icon: Icons.add,
+                    ),
+                    WorklogIconButton(
+                      onPressed: _saving ? null : _manageCategories,
+                      tooltip: strings.manageCategories,
+                      icon: Icons.edit_outlined,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SectionCard(
+            padding: EdgeInsets.zero,
+            child: ExpansionTile(
+              title: Text(strings.workTimeRange),
+              children: [
+                ListTile(
+                  title: Text(strings.workZone),
+                  subtitle: Text(_zone ?? strings.deviceZone),
+                  onTap: _saving ? null : _pickZone,
+                ),
+                ListTile(
+                  title: Text(strings.workStart),
+                  subtitle: Text(label(_start)),
+                  onTap: _saving ? null : () => _pickWorkTime(start: true),
+                ),
+                ListTile(
+                  title: Text(strings.workEnd),
+                  subtitle: Text(label(_end)),
+                  onTap: _saving ? null : () => _pickWorkTime(start: false),
+                ),
+              ],
+            ),
+          ),
+          SectionCard(
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ActionButton(
+                  label: strings.saveCheckIn,
+                  icon: Icons.check,
+                  onPressed: _saving ? null : _save,
+                ),
+                TextButton(
+                  onPressed: _saving
+                      ? null
+                      : () {
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/');
+                          }
+                        },
+                  child: Text(strings.backToWorklog),
+                ),
+              ],
             ),
           ),
         ],

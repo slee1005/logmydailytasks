@@ -22,6 +22,7 @@ import '../features/weekly/weekly_page.dart';
 import '../integrations/notifications/os_check_in_notifications.dart';
 import '../integrations/macos_update.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'widgets/worklog_layout.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -143,22 +144,7 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
     _syncQueue = _syncQueue.then((_) async {
       if (!mounted) return;
       try {
-        await os.initialize(_openCheckInAfterNotification);
-        if (!mounted) return;
-        final messenger = _messenger.currentState;
-        final schedule = ref.read(workScheduleProvider).value;
-        if (messenger == null || schedule == null) return;
-        final strings = AppLocalizations.of(messenger.context)!;
-        final zone = await ref.read(timeZoneProvider)();
-        if (!mounted) return;
-        _osReady = await os.sync(
-          schedule: schedule,
-          now: ref.read(currentDateProvider)(),
-          zone: zone,
-          title: strings.checkInTitle,
-          body: strings.reminderMessage,
-          channelName: strings.enableReminders,
-        );
+        _osReady = await _syncOsReminders(os);
       } catch (_) {
         _osReady = false;
       }
@@ -167,6 +153,33 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
         _refreshReminder();
       }
     });
+  }
+
+  Future<bool> _syncOsReminders(OsCheckInNotifications os) async {
+    final database = ref.read(databaseProvider);
+    if (!(await database.getSchedule()).enabled) {
+      await os.clearReminders();
+      return false;
+    }
+    if (!mounted) return false;
+
+    await os.initialize(_openCheckInAfterNotification);
+    if (!mounted) return false;
+    final messenger = _messenger.currentState;
+    if (messenger == null) return false;
+    final strings = AppLocalizations.of(messenger.context)!;
+    final zone = await ref.read(timeZoneProvider)();
+    // The toggle can change while the platform resolves its time zone.
+    final schedule = await database.getSchedule();
+    if (!mounted) return false;
+    return os.sync(
+      schedule: schedule,
+      now: ref.read(currentDateProvider)(),
+      zone: zone,
+      title: strings.checkInTitle,
+      body: strings.reminderMessage,
+      channelName: strings.enableReminders,
+    );
   }
 
   void _openCheckInAfterNotification() {
@@ -182,7 +195,11 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
   void _showReminder(DateTime scheduledAt) {
     final messenger = _messenger.currentState;
     final router = ref.read(_routerProvider);
-    if (messenger == null || router.state.uri.path == '/check-in') return;
+    if (messenger == null ||
+        router.state.uri.path == '/check-in' ||
+        ref.read(workScheduleProvider).value?.enabled != true) {
+      return;
+    }
     final strings = AppLocalizations.of(messenger.context)!;
     messenger
       ..removeCurrentSnackBar()
@@ -211,7 +228,6 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
   @override
   Widget build(BuildContext context) {
     ref.watch(sheetSyncProvider);
-    const seed = Color(0xff24625d);
     return MaterialApp.router(
       scaffoldMessengerKey: _messenger,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
@@ -222,8 +238,8 @@ class _WorklogAppState extends ConsumerState<WorklogApp> {
         GlobalWidgetsLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: ThemeData(colorSchemeSeed: seed),
-      darkTheme: ThemeData(colorSchemeSeed: seed, brightness: Brightness.dark),
+      theme: worklogTheme(Brightness.light),
+      darkTheme: worklogTheme(Brightness.dark),
       routerConfig: ref.watch(_routerProvider),
     );
   }

@@ -17,9 +17,25 @@ void main() {
     final rows = <List<Object?>>[logHeaders];
     final client = MockClient((request) async {
       if (request.method == 'GET') {
+        if (!request.url.path.contains('/values/')) {
+          return http.Response(
+            jsonEncode({
+              'sheets': [
+                {
+                  'properties': {'sheetId': 7, 'title': 'Log'},
+                },
+              ],
+            }),
+            200,
+          );
+        }
         return http.Response(jsonEncode({'values': rows}), 200);
       }
       final body = jsonDecode(request.body) as Map;
+      if (body.containsKey('requests')) {
+        expect(body['requests'], isNotEmpty);
+        return http.Response('{}', 200);
+      }
       expect(
         request.url.queryParameters['valueInputOption'] ??
             body['valueInputOption'],
@@ -72,6 +88,23 @@ void main() {
     expect(rows[2][11], 'MacBook');
     expect(rows[1][11], 'Phone');
     expect(await a.pendingSheetRecords(await a.ensureSheetSettings()), isEmpty);
+
+    await a.saveCheckIn(
+      title: 'Next Mac task',
+      at: time.add(const Duration(minutes: 45)),
+      tzName: 'Etc/UTC',
+    );
+    await sync(a);
+    final previousMac = rows.singleWhere((row) => row.first == originalId);
+    expect(previousMac[3], isA<num>());
+    expect(previousMac[4], 45);
+    expect(
+      decodeSheetRecord(previousMac)?.end,
+      time.add(const Duration(minutes: 45)).millisecondsSinceEpoch,
+    );
+    final phone = rows.singleWhere((row) => row[11] == 'Phone');
+    expect(phone[3], '');
+    expect(phone[4], '');
   });
 
   test('permission errors are surfaced before a write', () async {
